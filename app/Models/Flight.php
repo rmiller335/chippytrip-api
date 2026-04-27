@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 // =============================================================================
 class Flight extends Model {
+	protected $casts = [
+		'arrival_dt' =>		'datetime:Y-m-d H:i:s',
+		'departure_dt' =>	'datetime:Y-m-d H:i:s',
+	];
+
 	protected $fillable = [
 		'airline_icao',
 		'arrival_dt',

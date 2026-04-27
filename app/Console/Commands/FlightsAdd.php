@@ -40,12 +40,12 @@ class FlightsAdd extends Command {
 		$departureDt =	Carbon::parse(
 			$depDate . ' ' . $futureInfo['departure']['scheduledTime'],
 			$depAirport->timezone
-		);
+		)->utc();
 
 		$arrivalDt =	Carbon::parse(
 			$depDate . ' ' . $futureInfo['arrival']['scheduledTime'],
 			$arrAirport->timezone
-		);
+		)->utc();
 
 		if($arrivalDt->lessThan($departureDt)) {
 			$arrivalDt = $arrivalDt->addDay();
