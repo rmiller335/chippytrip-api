@@ -8,6 +8,18 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 // =============================================================================
 class Flight extends Model {
+	protected $fillable = [
+		'airline_icao',
+		'arrival_dt',
+		'departure_date',
+		'departure_dt',
+		'destination_icao',
+		'duration',
+		'flight',
+		'flight_no',
+		'origin_icao',
+	];
+
 	// =========================================================================
 	public function airline(): HasOne {
 		return $this->hasOne(Airline::class, 'icao', 'airline_icao');

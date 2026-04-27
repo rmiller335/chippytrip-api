@@ -63,21 +63,48 @@ class AviationEdgeSvc {
 	}
 
 	// =========================================================================
-	public function flight(string $flightNo) {
-		$matches = [];
+	public function flight(string $flightNum) {
+		$url = $this->urlFor('/timetable');
 
-		preg_match('/([A-Z]+)([0-9]+)/', $flightNo, $matches);
-
-		$url = $this->urlFor('/routes');
+		$iata = substr($flightNum, 0, 2);
+		$flightNum = substr($flightNum, 2);
 
 		$response = Http::retry(5, 1000)
 			->withOptions([ 'debug' => false ])
 			->get($url, [
 				'key' =>			config('aviationedge.key'),
-				'airlineiata' =>	$matches[1],
-				'flightNumber' =>	$matches[2],
+				'airline_iata' =>	$iata,
+				'flight_num' =>		$flightNum,
 			])
 		;
+
+		return $response->json()[0];
+	}
+
+	// =========================================================================
+	public function futureFlight(
+		string $iata, string $date, string $airlineIcao, string $flightNum
+	) {
+		Log::debug("futureFlight: iata = $iata");
+		Log::debug("futureFlight: date = $date");
+		Log::debug("futureFlight: airlineIcao = $airlineIcao");
+		Log::debug("futureFlight: flightNum = $flightNum");
+
+		$url = $this->urlFor('/flightsFuture');
+
+		$response = Http::retry(3, 5000)
+			->withOptions([ 'debug' => false ])
+			->get($url, [
+				'key' =>			config('aviationedge.key'),
+				'iataCode' =>		$iata,
+				'type' =>			'departure',
+				'date' =>			$date,
+				'airline_icao' =>	$airlineIcao,
+				'flight_num' =>		$flightNum,
+			])
+		;
+
+		return $response->json()[0];
 	}
 
 	// =========================================================================
