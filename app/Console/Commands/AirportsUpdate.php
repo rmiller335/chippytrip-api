@@ -49,15 +49,15 @@ class AirportsUpdate extends Command {
 			while($row = fgetcsv($ap, 2048)) {
 				if(0 < $recNo++ && '' != $row[16]) {
 					$airport = Airport::where('icao', $row[16])->first();
-
 					$country = Country::where('iso2', $row[9])->first();
 
 					if(null != $country && null != $airport) {
-						Log::debug("Updating airport $row[3]");
 
 						$updated = new Carbon($row[23]);
 
 						if($updated->greaterThan($airport->updated_at)) {
+							Log::debug("Updating airport $row[3]");
+
 							$airport->update([
 								'iata' =>			$row[17],
 								'name' =>			$row[3],

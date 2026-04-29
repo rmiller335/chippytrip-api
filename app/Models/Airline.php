@@ -55,8 +55,8 @@ class Airline extends Model implements Auditable {
 
 	// =========================================================================
 	protected function sameTypes(Airline $rhs) {
-		$lhsTypes = explode(',', $this->types);
-		$rhsTypes = explode(',', $rhs->types);
+		$lhsTypes = $this->types;
+		$rhsTypes = $rhs->types;
 
 		sort($lhsTypes);
 		sort($rhsTypes);
