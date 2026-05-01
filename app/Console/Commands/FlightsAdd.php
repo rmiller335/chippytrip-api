@@ -2,9 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Airline;
 use App\Models\Airport;
 use App\Models\Flight;
-use App\Services\AviationEdgeSvc;
+use App\Services\FlightLookupSvc;
 use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -13,57 +14,59 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
 // =============================================================================
-#[Signature('flights:add {flightno} {departure}')]
+#[Signature('flights:add {flightno} {origin} {destination} {date}')]
 #[Description('Add a flight')]
 class FlightsAdd extends Command {
 	// =========================================================================
-    public function handle(AviationEdgeSvc $ae) {
-		$flightNo = $this->argument('flightno');
-		$depDate = $this->argument('departure');
+    public function handle(FlightLookupSvc $fl) {
+		$flightNo =		$this->argument('flightno');
+		$origin =		$this->argument('origin');
+		$destination =	$this->argument('destination');
+		$date =			$this->argument('date');
 
-		Log::debug("flightNo = $flightNo");
-		Log::debug("depDate = $depDate");
+		$icao = substr($flightNo, 0, 3);
+		$flightNo = substr($flightNo, 3);
 
-		$flightInfo = $ae->flight($flightNo);
+		$airline = Airline::where('icao', $icao)->first();
+		null == $airline && $this->fail("Invalid airline icao: $icao");
+
+		$flightInfo = $fl->flight(
+			$icao, $flightNo, $origin, $destination, Str::replace('-', '', $date)
+		);
+
+		null == $flightInfo && $this->fail("No flights found");
+
 		Log::debug(json_encode($flightInfo, JSON_PRETTY_PRINT));
 
-		$futureInfo = $ae->futureFlight(
-			$flightInfo['departure']['iataCode'],
-			$depDate,
-			$flightInfo['airline']['icaoCode'],
-			$flightInfo['flight']['number']
-		);
-		Log::debug(json_encode($futureInfo, JSON_PRETTY_PRINT));
-		$depAirport = Airport::where('icao', $futureInfo['departure']['icaoCode'])->first();
-		$arrAirport = Airport::where('icao', $futureInfo['arrival']['icaoCode'])->first();
+		$depAirport = Airport::where(
+			'iata', $flightInfo->DepartureAirport->attributes->LocationCode
+		)->first();
+
+		$arrAirport = Airport::where(
+			'iata', $flightInfo->ArrivalAirport->attributes->LocationCode
+		)->first();
 
 		$departureDt =	Carbon::parse(
-			$depDate . ' ' . $futureInfo['departure']['scheduledTime'],
-			$depAirport->timezone
+			$flightInfo->attributes->DepartureDateTime .
+			$flightInfo->attributes->FLSDepartureTimeOffset
 		)->utc();
 
 		$arrivalDt =	Carbon::parse(
-			$depDate . ' ' . $futureInfo['arrival']['scheduledTime'],
-			$arrAirport->timezone
+			$flightInfo->attributes->ArrivalDateTime .
+			$flightInfo->attributes->FLSArrivalTimeOffset
 		)->utc();
 
-		if($arrivalDt->lessThan($departureDt)) {
-			$arrivalDt = $arrivalDt->addDay();
-		}
-
 		$flight = new Flight([
-			'airline_icao' =>		Str::upper($futureInfo['airline']['icaoCode']),
-			'flight' =>				$flightNo,
-			'flight_no' =>			Str::upper($futureInfo['flight']['number']),
-			'origin_icao' =>		Str::upper($futureInfo['departure']['icaoCode']),
-			'destination_icao' =>	Str::upper($futureInfo['arrival']['icaoCode']),
-			'departure_date' =>		$depDate,
+			'airline_icao' =>		$icao,
+			'flight' =>				$airline->iata . $flightNo,
+			'flight_no' =>			$flightNo,
+			'origin_icao' =>		$depAirport->icao,
+			'destination_icao' =>	$arrAirport->icao,
+			'departure_date' =>		$date,
 			'departure_dt' =>		$departureDt,
 			'arrival_dt' =>			$arrivalDt,
 			'duration' =>			$departureDt->diffInMinutes($arrivalDt)
 		]);
-
-		Log::debug(json_encode($flight, JSON_PRETTY_PRINT));
 
 		$flight->save();
     }

@@ -27,3 +27,49 @@ function humanFlight(string $flight): string {
 
 	return implode(' ', [ humanAirline($icao), $number ]);
 }
+
+// =============================================================================
+function xmlToObject(string $xmlString): stdClass {
+    $xml = simplexml_load_string($xmlString, 'SimpleXMLElement', LIBXML_NOCDATA);
+
+    if ($xml === false) {
+        throw new InvalidArgumentException('Invalid XML string provided.');
+    }
+
+    return parseXmlNode($xml);
+}
+
+// =============================================================================
+function parseXmlNode(SimpleXMLElement $xml): stdClass {
+    $obj = new stdClass();
+
+    // Attributes
+    foreach ($xml->attributes() as $key => $value) {
+        if (!isset($obj->attributes)) {
+            $obj->attributes = new stdClass();
+        }
+        $obj->attributes->$key = (string) $value;
+    }
+
+    // Child elements
+    foreach ($xml->children() as $childName => $child) {
+        $childObj = parseXmlNode($child);
+
+        if (isset($obj->$childName)) {
+            if (!is_array($obj->$childName)) {
+                $obj->$childName = [$obj->$childName];
+            }
+            $obj->$childName[] = $childObj;
+        } else {
+            $obj->$childName = $childObj;
+        }
+    }
+
+    // Text content
+    $text = trim((string) $xml);
+    if ($text !== '' && !isset($obj->attributes) && count((array) $obj) === 0) {
+        $obj->value = $text;
+    }
+
+    return $obj;
+}
