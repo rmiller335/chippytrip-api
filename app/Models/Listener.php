@@ -2,29 +2,28 @@
 
 namespace App\Models;
 
-use App\Models\WatchCallback;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class Watch extends Model implements Auditable {
+class Listener extends Model implements Auditable {
 	use \OwenIt\Auditing\Auditable;
 
-	protected $table = 'watches';
+	protected $table = 'listeners';
 
 	protected $fillable = [
-		'flight_id',
-		'subscription_id',
+		'travelers',
+		'watch_id',
 	];
 
 	// =========================================================================
-	public function callbacks(): HasMany {
-		return $this->hasMany(WatchCallback::class, 'alert_id', 'subscription_id');
+	public function user(): BelongsTo {
+		return $this->belongsTo(User::class, 'user_id', 'id');
 	}
 
 	// =========================================================================
-	public function listeners(): HasMany {
-		return $this->hasMany(Listener::class, 'watch_id', 'id');
+	public function watch(): BelongsTo {
+		return $this->belongsTo(Watch::class, 'watch_id', 'id');
 	}
 }

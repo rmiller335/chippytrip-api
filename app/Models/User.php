@@ -3,14 +3,18 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\UserChannel;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use NotificationChannels\Pushover\PushoverChannel;
 
+// =============================================================================
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -18,11 +22,7 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+	// =========================================================================
     protected function casts(): array
     {
         return [
@@ -30,4 +30,31 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+	// =========================================================================
+	public function channels() : HasMany {
+		return $this->hasMany(UserChannel::class);
+	}
+
+	// =========================================================================
+	public function getChannelIdsAttribute() {
+		return $this->channels->pluck('channel');
+	}
+
+	// =========================================================================
+	public function listeners(): HasMany {
+		return $this->hasMany(Listener::class, 'user_id', 'id');
+	}
+
+	// =========================================================================
+	public function routeNotificationForPushover() {
+		$channel = $this->channels->where('channel', pushoverChannel::class)->first();
+
+		if($channel) {
+			return $channel->credentials['key'];
+		}
+		else {
+			return null;
+		}
+	}
 }

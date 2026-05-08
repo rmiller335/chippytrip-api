@@ -6,12 +6,9 @@ use App\Models\Airline;
 use App\Models\Airport;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
-use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class Country extends Model implements Auditable {
-	use \OwenIt\Auditing\Auditable;
-
+class Country extends Model {
 	protected $fillable = [
 		'iso2',
 		'iso3',

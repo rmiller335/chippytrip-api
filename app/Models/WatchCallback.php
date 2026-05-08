@@ -4,6 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /*
  * ---------------------------------------------------------------------------
@@ -23,7 +27,7 @@ use Illuminate\Database\Eloquent\Model;
 */
 
 // =============================================================================
-class WatchInfo extends Model {
+class WatchCallback extends Model {
 	protected $table = 'watch_callbacks';
 
 	protected $fillable = [
@@ -215,6 +219,22 @@ class WatchInfo extends Model {
         ]);
     }
  
+    // -------------------------------------------------------------------------
+	public function notification(): ?Notification {
+		$type = Str::studly($this->event_code);
+		$class = 'App\\Notifications\\' . $type;
+		Log::debug("notification: $class");
+
+		return new $class($this);
+	}
+
+    // -------------------------------------------------------------------------
+	// Relationships
+    // -------------------------------------------------------------------------
+	public function watch(): BelongsTo {
+		return $this->belongsTo(Watch::class, 'alert_id', 'subscription_id');
+	}
+	
     // -------------------------------------------------------------------------
     // Accessors
     // -------------------------------------------------------------------------

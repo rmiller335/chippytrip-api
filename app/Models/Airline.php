@@ -7,12 +7,9 @@ use App\Services\FlightAwareSvc;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Log;
-use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class Airline extends Model implements Auditable {
-	use \OwenIt\Auditing\Auditable;
-
+class Airline extends Model {
 	protected $casts = [
 		'types' =>	'array',
 	];

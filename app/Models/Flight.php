@@ -5,9 +5,12 @@ namespace App\Models;
 use App\Models\Airport;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class Flight extends Model {
+class Flight extends Model implements Auditable {
+	use \OwenIt\Auditing\Auditable;
+
 	protected $casts = [
 		'arrival_dt' =>		'datetime:Y-m-d H:i:s',
 		'departure_dt' =>	'datetime:Y-m-d H:i:s',

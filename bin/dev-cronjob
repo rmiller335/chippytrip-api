@@ -1,0 +1,26 @@
+#!/usr/bin/bash
+
+APIDIR=/home/rmiller/dev/chippytrip-api
+LOGFILE="$APIDIR/storage/logs/queue-worker.log"
+
+# ==============================================================================
+# Wait for mysql to be available ...
+timeout=60
+elapsed=0
+
+until mysqladmin ping -h localhost --silent; do
+	if [ $elapsed -ge $timeout ]
+	then
+		echo "MySQL did not become available in time" > $LOGFILE
+		exit 1
+	fi
+
+	sleep 2
+	elapsed=$((elapsed + 2))
+done
+
+
+cd $APIDIR
+echo "Starting queue worker at $(date '+%Y-%m-%d %H:%M:%S')" > $LOGFILE
+
+bin/dev-queue-worker > $LOGFILE 2>&1
