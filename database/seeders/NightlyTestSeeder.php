@@ -78,6 +78,8 @@ class NightlyTestSeeder extends Seeder {
 
 			if(!$enableWatch) {
 				$this->fa->watchDelete($subsId);
+				$watch->enabled = false;
+				$watch->save();
 			}
 
 			return $watch;
