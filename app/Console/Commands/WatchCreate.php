@@ -19,15 +19,18 @@ class WatchCreate extends Command {
 		$flightId = $this->argument('flight-id');
 
 		$flight = Flight::find($flightId);
-		$secret = bin2hex(random_bytes(16));
+		$secret = Watch::genSecret();
+
+		$watchStart = Carbon::max($flight->departure_date->subDay(), Carbon::today());
 
 		$subsId = $fa->watchCreate($flight->flight, $flight->origin_icao,
-			$flight->destination_icao, $flight->departure_date, $secret);
+			$flight->destination_icao, $watchStart, $secret);
 
 		if($subsId) {
 			Watch::create([
-				'flight_id' =>	$flightId,
+				'flight_id' =>			$flightId,
 				'subscription_id' =>	$subsId,
+				'secret' =>				$secret,
 			]);
 		}
 		else {

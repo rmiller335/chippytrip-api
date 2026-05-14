@@ -20,7 +20,7 @@ class WatchList extends Command {
 
 		$data = [];
 
-		foreach($list->alerts as $alert) {
+		foreach($list as $alert) {
 			$watch = Watch::where('subscription_id', $alert->id)->first();
 
 			$data[] = [

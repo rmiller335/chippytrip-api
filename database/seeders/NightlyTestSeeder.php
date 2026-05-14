@@ -17,16 +17,20 @@ use Illuminate\Database\Seeder;
 use OwenIt\Auditing\Models\Audit;
 
 // =============================================================================
-class ListenerSeeder extends Seeder {
+class NightlyTestSeeder extends Seeder {
     protected FlightAwareSvc $fa;
 	protected FlightLookupSvc $fl;
 
 	// =========================================================================
-	protected function addFlight($icao, $flightNo, $flight, $origin, $destination) {
-		$date = Carbon::today()->addDay()->toDateString();
-
+	protected function addFlight($icao,
+		$flightNo,
+		$flight,
+		$origin,
+		$destination,
+		$departure
+	) {
 		$flightInfo = $this->fl->flight(
-			$icao, $flightNo, $origin, $destination, str_replace('-', '', $date)
+			$icao, $flightNo, $origin, $destination, Carbon::now()->format('Ymd')
 		);
 
 		$departureDt =	Carbon::parse(
@@ -45,7 +49,7 @@ class ListenerSeeder extends Seeder {
 			'flight' =>				$flight,
 			'origin_icao' =>		Airport::where('iata', $origin)->first()->icao,
 			'destination_icao' =>	Airport::where('iata', $destination)->first()->icao,
-			'departure_date' =>		$date,
+			'departure_date' =>		Carbon::now()->addDay()->format('Y-m-d'),
 			'departure_dt' =>		$departureDt,
 			'arrival_dt' =>			$arrivalDt,
 			'duration' =>			$departureDt->diffInMinutes($arrivalDt),
@@ -53,13 +57,13 @@ class ListenerSeeder extends Seeder {
 
 		$flight->save();
 
-		Log::debug(json_encode($flight, JSON_PRETTY_PRINT));
+//		Log::debug(json_encode($flight, JSON_PRETTY_PRINT));
 
 		return $flight;
 	}
 
 	// =========================================================================
-	protected function addWatch(Flight $flight) {
+	protected function addWatch(Flight $flight, bool $enableWatch) {
 		$secret = bin2hex(random_bytes(16));
 
 		$subsId = $this->fa->watchCreate($flight->flight, $flight->origin_icao,
@@ -72,12 +76,44 @@ class ListenerSeeder extends Seeder {
 				'secret' =>				$secret,
 			]);
 
+			if(!$enableWatch) {
+				$this->fa->watchDelete($subsId);
+			}
+
 			return $watch;
 		}
 		else {
 			$this->command->error("Can't create flightaware watch!");
 			exit(1);
 		}
+	}
+
+	// =========================================================================
+	protected function createFlight(
+		User	$user,
+		string	$airline,
+		string	$flightNo,
+		string	$origin,
+		string	$destination,
+		Carbon	$date,
+		string	$travellers,
+		bool	$enableWatch
+	){
+		$flight = $this->addFlight(
+			icao:			$airline,
+			flightNo:		$flightNo,
+			flight:			$airline . $flightNo,
+			origin:			$origin,
+			destination:	$destination,
+			departure:		$date
+		);
+
+		$watch = $this->addWatch($flight, $enableWatch);
+
+		$user->listeners()->create([
+			'watch_id' =>	$watch->id,
+			'travelers' =>	$travellers
+		]);
 	}
 
 	// =========================================================================
@@ -91,7 +127,6 @@ class ListenerSeeder extends Seeder {
 
 			// Clean up old records
 			$watches = $this->fa->watchList();
-			Log::debug(json_encode($watches, JSON_PRETTY_PRINT));
 
 			foreach($watches as $watch) {
 				$id = $watch->id;
@@ -107,38 +142,83 @@ class ListenerSeeder extends Seeder {
 				$this->fa->watchDelete($id);
 			}
 
+			Listener::query()->delete();
+			Watch::query()->delete();
 			Flight::query()->delete();
 			Audit::query()->delete();
 
 			// Now for the new ones ...
-			$flight = $this->addFlight(
-				icao:			'DAL',
-				flightNo:		185,
-				flight:			'DAL185',
-				origin:			'MXP',
-				destination:	'JFK'
-			);
-
-			$watch = $this->addWatch($flight);
-			$user->listeners()->create([
-				'watch_id' =>	$watch->id,
-				'travelers' =>	'Antonio & Silvia',
-			]);
-
-			$flight = $this->addFlight(
-				icao:			'DAL',
-				flightNo:		184,
-				flight:			'DAL184',
+			// In the past, with a watch
+			$this->createFlight(
+				user:			$user,
+				airline:		'AAL',
+				flightNo:		100,
 				origin:			'JFK',
-				destination:	'MXP'
+				destination:	'LHR',
+				date:			Carbon::now()->subWeek(),
+				travellers:		'Anna & Fred',
+				enableWatch:	true
 			);
 
-			$watch = $this->addWatch($flight);
-			$user->listeners()->create([
-				'watch_id' =>	$watch->id,
-				'travelers' =>	'Giorgio & Chiara',
-			]);
+			// In the past, no watch
+			$this->createFlight(
+				user:			$user,
+				airline:		'AAL',
+				flightNo:		1006,
+				origin:			'GUA',
+				destination:	'MIA',
+				date:			Carbon::now()->subWeek(),
+				travellers:		'Joan & Ernie',
+				enableWatch:	false
+			);
 
+			// Current, with a watch
+			$this->createFlight(
+				user:			$user,
+				airline:		'DAL',
+				flightNo:		742,
+				origin:			'JFK',
+				destination:	'LAX',
+				date:			Carbon::now(),
+				travellers:		'Nicki & Andrew',
+				enableWatch:	true
+			);
+
+			// Current, no watch
+			$this->createFlight(
+				user:			$user,
+				airline:		'JBU',
+				flightNo:		123,
+				origin:			'JFK',
+				destination:	'LAX',
+				date:			Carbon::now(),
+				travellers:		'Cindy & Charles',
+				enableWatch:	false
+			);
+
+			// Future, with watch
+			$this->createFlight(
+				user:			$user,
+				airline:		'BAW',
+				flightNo:		1511,
+				origin:			'JFK',
+				destination:	'LHR',
+				date:			Carbon::now()->addWeek(),
+				travellers:		'Laura & Evan',
+				enableWatch:	true
+			);
+
+			// Future, no watch
+			$this->createFlight(
+				user:			$user,
+				airline:		'AFR',
+				flightNo:		006,
+				origin:			'CDG',
+				destination:	'JFK',
+				date:			Carbon::now()->addWeek(),
+				travellers:		'Laura & Evan',
+				enableWatch:	false
+			);
 		}
 		else {
 			$this->command->error("Only in debug mode!");

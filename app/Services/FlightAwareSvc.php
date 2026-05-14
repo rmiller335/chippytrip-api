@@ -140,7 +140,25 @@ class FlightAwareSvc {
 		string $ident, string $org, string $dest, string $startDate, $secret)
 	{
 		$target = url(config('flightaware.callback')) . '?s=' . $secret;
-		Log::debug("target = $target");
+
+		Log::debug(json_encode([
+			'ident' =>			$ident,
+			'origin' =>			$org,
+			'destination' =>	$dest,
+			'start' =>			$startDate,
+			'events' => [
+				'arrival' =>	true,
+				'cancelled' =>	true,
+				'departure' =>	true,
+				'diverted' =>	true,
+				'filed' =>		true,
+				'out' =>		true,
+				'in' =>			true,
+				'hold_start' =>	true,
+				'hold_end' =>	true,
+			],
+			'target_url' =>		$target,
+		], JSON_PRETTY_PRINT));
 
 		$resp = Http::withOptions([ 'debug' => false ])
 		->withHeaders([
@@ -201,13 +219,24 @@ class FlightAwareSvc {
 
 	// =========================================================================
 	public function watchList() {
-		$resp = Http::withHeaders([
-			'x-apikey' =>	$this->key,
-		])
-			->get($this->url . '/alerts')
-		;
+		$url = $this->url . '/alerts';
+		$alerts = [];
 
-		return arrayToObject($resp->json());
+		do {
+			$resp = Http::withHeaders([
+				'x-apikey' =>	$this->key,
+			])
+				->get($this->url . '/alerts')
+			;
+
+			$alerts = array_merge($alerts, $resp->json()['alerts']);
+		} while(null != $resp->json()['links']);
+
+		for($i = 0 ; $i < count($alerts) ; ++$i) {
+			$alerts[$i] = arrayToObject($alerts[$i]);
+		}
+
+		return $alerts;
 	}
 
 	// =========================================================================

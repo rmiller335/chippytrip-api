@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\Flight;
 use App\Models\WatchCallback;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Model;
 use OwenIt\Auditing\Contracts\Auditable;
 
@@ -16,11 +19,24 @@ class Watch extends Model implements Auditable {
 	protected $fillable = [
 		'flight_id',
 		'subscription_id',
+		'enabled',
+		'secret',
 	];
 
 	// =========================================================================
 	public function callbacks(): HasMany {
 		return $this->hasMany(WatchCallback::class, 'alert_id', 'subscription_id');
+	}
+
+	// =========================================================================
+	public function flight(): HasOne {
+		return $this->hasOne(Flight::class, 'id', 'flight_id');
+	}
+
+
+	// =========================================================================
+	public function genSecret(): string {
+		return bin2hex(random_bytes(16));
 	}
 
 	// =========================================================================

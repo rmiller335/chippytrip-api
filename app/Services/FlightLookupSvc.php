@@ -26,7 +26,10 @@ class FlightLookupSvc {
 			$date
 		]);
 
-		$resp = Http::withHeaders([
+		$resp = Http::withOptions([
+			'verify' => false,
+		])
+		->withHeaders([
 			'x-rapidapi-host' =>	config('flightlookup.host'),
 			'x-rapidapi-key' =>		config('flightlookup.key'),
 		])->get($url, [

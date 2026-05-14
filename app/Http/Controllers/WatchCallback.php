@@ -17,7 +17,16 @@ class WatchCallback extends Controller {
 		Log::debug("s = " . $request->input('s'));
 		Log::debug("Long description: " . $request->input('long_description'));
 
+		$secret = $request->input('s');
+
 		$wc = \App\Models\WatchCallback::FromApiPayload($request->json()->all(), $request->ip());
+
+		$watch = Watch::where('subscription_id', $wc->alert_id)->first();
+
+		if(null == $watch || $watch->secret != $secret) {
+			return response('Invalid POST request', 403);
+		}
+
 		$wc->save();
 
 		foreach($wc->watch->listeners as $listener) {
