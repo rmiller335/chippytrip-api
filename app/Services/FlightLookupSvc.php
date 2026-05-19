@@ -27,6 +27,7 @@ class FlightLookupSvc {
 		]);
 
 		$resp = Http::withOptions([
+			'debug' =>	false,
 			'verify' => false,
 		])
 		->withHeaders([

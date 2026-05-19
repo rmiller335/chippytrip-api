@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Log;
 #[Description('Command description')]
 class MaintenanceNightly extends Command {
 	protected array $alerts;
+    protected FlightAwareSvc $fa;
 
 	// =========================================================================
 	protected function disableOld() {
@@ -35,8 +36,9 @@ class MaintenanceNightly extends Command {
 		;
 
 		foreach($old->lazy(200) as $l) {
-			$this->fa->deleteWatch($l->watch->subscription_id);
-			$l->update([ 'enabled' => false ]);
+			$this->fa->watchDelete($l->watch->subscription_id);
+			$l->watch->enabled = false;
+			$l->watch->save();
 		}
 	}
 
@@ -49,25 +51,38 @@ class MaintenanceNightly extends Command {
 				return $q->where('enabled', false);
 			})
 			->whereHas('watch.flight', function($q) use($now) {
-				return $q->where('alert_start', '<=', $now->endOfDay())
-					->andWhere('alert_end', '>=', $now->startOfDay())
+				return $q->where('alert_start', '<=', $now->startOfDay())
+					->where('alert_end', '>=', $now->endOfDay())
 				;
 			})
 		;
 
+		Log::debug("enableNew: found " . $new->count() . " new");
+
 		foreach($new->lazy(200) as $l) {
-//			$this->fa->deleteWatch($l->watch->subscription_id);
-			$l->update([ 'enabled' => true ]);
+			$secret = Watch::genSecret();
+
+			$subsId = $this->fa->watchCreate($l->watch->flight->flight, $l->watch->flight->origin_icao,
+				$l->watch->flight->destination_icao, Carbon::now()->format('Y-m-d'),
+				$secret
+			);
+
+			$l->watch->subscription_id = $subsId;
+			$l->watch->secret = $secret;
+			$l->watch->enabled = true;
+			$l->watch->save();
 		}
 	}
 
 	// =========================================================================
     public function handle(FlightAwareSvc $fa) {
-		$this->alerts = $fa->watchList();
+		$this->fa = $fa;
+		$this->alerts = $this->fa->watchList();
 
 		DB::transaction(function() {
 			$this->syncAlerts();
 			$this->disableOld();
+			$this->enableNew();
 		});
     }
 

@@ -32,16 +32,23 @@ class NightlyTestSeeder extends Seeder {
 		$flightInfo = $this->fl->flight(
 			$icao, $flightNo, $origin, $destination, Carbon::now()->format('Ymd')
 		);
+Log::debug(json_encode($flightInfo, JSON_PRETTY_PRINT));
+
+		$duration = Carbon::parse(
+			$flightInfo->attributes->DepartureDateTime .
+			$flightInfo->attributes->FLSDepartureTimeOffset
+		)->diffInMinutes(Carbon::parse(
+			$flightInfo->attributes->ArrivalDateTime .
+			$flightInfo->attributes->FLSArrivalTimeOffset
+		));
 
 		$departureDt =	Carbon::parse(
-			$flightInfo->attributes->DepartureDateTime .
+			$departure->format('Y-m-d') .
+			substr($flightInfo->attributes->DepartureDateTime, 10) .
 			$flightInfo->attributes->FLSDepartureTimeOffset
 		)->utc();
 
-		$arrivalDt =	Carbon::parse(
-			$flightInfo->attributes->ArrivalDateTime .
-			$flightInfo->attributes->FLSArrivalTimeOffset
-		)->utc();
+		$arrivalDt =	$departureDt->copy()->addMinutes($duration);
 
 		$flight = new Flight([
 			'airline_icao' =>		$icao,
@@ -49,7 +56,7 @@ class NightlyTestSeeder extends Seeder {
 			'flight' =>				$flight,
 			'origin_icao' =>		Airport::where('iata', $origin)->first()->icao,
 			'destination_icao' =>	Airport::where('iata', $destination)->first()->icao,
-			'departure_date' =>		Carbon::now()->addDay()->format('Y-m-d'),
+			'departure_date' =>		$departure,
 			'departure_dt' =>		$departureDt,
 			'arrival_dt' =>			$arrivalDt,
 			'duration' =>			$departureDt->diffInMinutes($arrivalDt),
@@ -65,9 +72,10 @@ class NightlyTestSeeder extends Seeder {
 	// =========================================================================
 	protected function addWatch(Flight $flight, bool $enableWatch) {
 		$secret = bin2hex(random_bytes(16));
+		$start = $flight->alert_start->gt(Carbon::now()) ? $flight->alert_start : Carbon::now();
 
 		$subsId = $this->fa->watchCreate($flight->flight, $flight->origin_icao,
-			$flight->destination_icao, $flight->alert_start->format('Y-m-d'), $secret);
+			$flight->destination_icao, $start->format('Y-m-d'), $secret);
 
 		if($subsId) {
 			$watch = Watch::create([
@@ -78,6 +86,7 @@ class NightlyTestSeeder extends Seeder {
 
 			if(!$enableWatch) {
 				$this->fa->watchDelete($subsId);
+
 				$watch->enabled = false;
 				$watch->save();
 			}
@@ -151,13 +160,16 @@ class NightlyTestSeeder extends Seeder {
 
 			// Now for the new ones ...
 			// In the past, with a watch
+			$lastWeek = Carbon::now();
+			$lastWeek->subWeek();
+
 			$this->createFlight(
 				user:			$user,
 				airline:		'AAL',
 				flightNo:		100,
 				origin:			'JFK',
 				destination:	'LHR',
-				date:			Carbon::now()->subWeek(),
+				date:			$lastWeek,
 				travellers:		'Anna & Fred',
 				enableWatch:	true
 			);
@@ -169,7 +181,7 @@ class NightlyTestSeeder extends Seeder {
 				flightNo:		1006,
 				origin:			'GUA',
 				destination:	'MIA',
-				date:			Carbon::now()->subWeek(),
+				date:			$lastWeek,
 				travellers:		'Joan & Ernie',
 				enableWatch:	false
 			);
@@ -199,13 +211,16 @@ class NightlyTestSeeder extends Seeder {
 			);
 
 			// Future, with watch
+			$nextWeek = Carbon::now();
+			$nextWeek->addWeek();
+
 			$this->createFlight(
 				user:			$user,
 				airline:		'BAW',
 				flightNo:		1511,
 				origin:			'JFK',
 				destination:	'LHR',
-				date:			Carbon::now()->addWeek(),
+				date:			$nextWeek,
 				travellers:		'Laura & Evan',
 				enableWatch:	true
 			);
@@ -217,7 +232,7 @@ class NightlyTestSeeder extends Seeder {
 				flightNo:		006,
 				origin:			'CDG',
 				destination:	'JFK',
-				date:			Carbon::now()->addWeek(),
+				date:			$nextWeek,
 				travellers:		'Laura & Evan',
 				enableWatch:	false
 			);

@@ -16,12 +16,26 @@ class Watch extends Model implements Auditable {
 
 	protected $table = 'watches';
 
+	protected $attributes = [
+		'enabled' =>	true,
+	];
+
 	protected $fillable = [
 		'flight_id',
 		'subscription_id',
 		'enabled',
 		'secret',
 	];
+
+	// =========================================================================
+	protected static function booted(): void {
+		static::saving(function(Watch $w) {
+			if(!$w->enabled) {
+				$w->secret = null;
+				$w->subscription_id = null;
+			}
+		});
+	}
 
 	// =========================================================================
 	public function callbacks(): HasMany {
@@ -35,7 +49,7 @@ class Watch extends Model implements Auditable {
 
 
 	// =========================================================================
-	public function genSecret(): string {
+	public static function genSecret(): string {
 		return bin2hex(random_bytes(16));
 	}
 
