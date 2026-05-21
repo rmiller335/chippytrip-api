@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Jobs\EnableWatch;
 use App\Models\Airport;
 use App\Models\Flight;
 use App\Models\Listener;
@@ -32,7 +33,6 @@ class NightlyTestSeeder extends Seeder {
 		$flightInfo = $this->fl->flight(
 			$icao, $flightNo, $origin, $destination, Carbon::now()->format('Ymd')
 		);
-Log::debug(json_encode($flightInfo, JSON_PRETTY_PRINT));
 
 		$duration = Carbon::parse(
 			$flightInfo->attributes->DepartureDateTime .
@@ -64,39 +64,21 @@ Log::debug(json_encode($flightInfo, JSON_PRETTY_PRINT));
 
 		$flight->save();
 
-//		Log::debug(json_encode($flight, JSON_PRETTY_PRINT));
-
 		return $flight;
 	}
 
 	// =========================================================================
 	protected function addWatch(Flight $flight, bool $enableWatch) {
-		$secret = bin2hex(random_bytes(16));
-		$start = $flight->alert_start->gt(Carbon::now()) ? $flight->alert_start : Carbon::now();
+		$watch = Watch::create([
+			'flight_id' =>	$flight->id,
+			'enabled' =>	false,
+		]);
 
-		$subsId = $this->fa->watchCreate($flight->flight, $flight->origin_icao,
-			$flight->destination_icao, $start->format('Y-m-d'), $secret);
-
-		if($subsId) {
-			$watch = Watch::create([
-				'flight_id' =>			$flight->id,
-				'subscription_id' =>	$subsId,
-				'secret' =>				$secret,
-			]);
-
-			if(!$enableWatch) {
-				$this->fa->watchDelete($subsId);
-
-				$watch->enabled = false;
-				$watch->save();
-			}
-
-			return $watch;
+		if($enableWatch) {
+			EnableWatch::dispatch($watch);
 		}
-		else {
-			$this->command->error("Can't create flightaware watch!");
-			exit(1);
-		}
+
+		return $watch;
 	}
 
 	// =========================================================================

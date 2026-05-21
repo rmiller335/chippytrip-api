@@ -137,7 +137,7 @@ class FlightAwareSvc {
 
 	// =========================================================================
 	public function watchCreate(
-		string $ident, string $org, string $dest, string $startDate, $secret)
+		string $ident, string $org, string $dest, Carbon $startDate, $secret)
 	{
 		$target = url(config('flightaware.callback')) . '?s=' . $secret;
 
@@ -145,7 +145,7 @@ class FlightAwareSvc {
 			'ident' =>			$ident,
 			'origin' =>			$org,
 			'destination' =>	$dest,
-			'start' =>			$startDate,
+			'start' =>			$startDate->format('Y-m-d'),
 			'events' => [
 				'arrival' =>	true,
 				'cancelled' =>	true,
@@ -168,7 +168,7 @@ class FlightAwareSvc {
 			'ident' =>			$ident,
 			'origin' =>			$org,
 			'destination' =>	$dest,
-			'start' =>			$startDate,
+			'start' =>			$startDate->format('Y-m-d'),
 			'events' => [
 				'arrival' =>	true,
 				'cancelled' =>	true,

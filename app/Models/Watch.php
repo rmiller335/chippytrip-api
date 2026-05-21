@@ -17,7 +17,7 @@ class Watch extends Model implements Auditable {
 	protected $table = 'watches';
 
 	protected $attributes = [
-		'enabled' =>	true,
+		'enabled' =>	false,
 	];
 
 	protected $fillable = [
@@ -28,6 +28,7 @@ class Watch extends Model implements Auditable {
 	];
 
 	// =========================================================================
+/*
 	protected static function booted(): void {
 		static::saving(function(Watch $w) {
 			if(!$w->enabled) {
@@ -36,10 +37,25 @@ class Watch extends Model implements Auditable {
 			}
 		});
 	}
+*/
 
 	// =========================================================================
 	public function callbacks(): HasMany {
 		return $this->hasMany(WatchCallback::class, 'alert_id', 'subscription_id');
+	}
+
+	// =========================================================================
+	public function disable() {
+		$this->subscription_id =	null;
+		$this->secret =				null;
+		$this->enabled =			false;
+	}
+
+	// =========================================================================
+	public function enable($subsId, $secret) {
+		$this->subscription_id =	$subsId;
+		$this->secret =				$secret;
+		$this->enabled =			true;
 	}
 
 	// =========================================================================

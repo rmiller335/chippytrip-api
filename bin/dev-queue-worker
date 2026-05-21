@@ -2,5 +2,5 @@
 
 cd "$(dirname "$(realpath "$BASH_SOURCE")")/.."
 
-find app -name '*.php' | \
+find app database/seeders -name '*.php' | \
 	entr -n -r sh -c 'echo -n "Working at " && date "+%Y-%m-%d %H:%M:%S" && ./artisan queue:work'

@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\DisableWatch;
+use App\Jobs\EnableWatch;
 use App\Models\Flight;
 use App\Models\Listener;
 use App\Models\Watch;
@@ -36,9 +38,7 @@ class MaintenanceNightly extends Command {
 		;
 
 		foreach($old->lazy(200) as $l) {
-			$this->fa->watchDelete($l->watch->subscription_id);
-			$l->watch->enabled = false;
-			$l->watch->save();
+			DisableWatch::dispatch($l->watch);
 		}
 	}
 
@@ -60,17 +60,7 @@ class MaintenanceNightly extends Command {
 		Log::debug("enableNew: found " . $new->count() . " new");
 
 		foreach($new->lazy(200) as $l) {
-			$secret = Watch::genSecret();
-
-			$subsId = $this->fa->watchCreate($l->watch->flight->flight, $l->watch->flight->origin_icao,
-				$l->watch->flight->destination_icao, Carbon::now()->format('Y-m-d'),
-				$secret
-			);
-
-			$l->watch->subscription_id = $subsId;
-			$l->watch->secret = $secret;
-			$l->watch->enabled = true;
-			$l->watch->save();
+			EnableWatch::dispatch($l->watch);
 		}
 	}
 
