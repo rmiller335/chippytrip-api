@@ -4,10 +4,12 @@ namespace App\Models;
 
 use App\Models\Flight;
 use App\Models\WatchCallback;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
@@ -26,18 +28,6 @@ class Watch extends Model implements Auditable {
 		'enabled',
 		'secret',
 	];
-
-	// =========================================================================
-/*
-	protected static function booted(): void {
-		static::saving(function(Watch $w) {
-			if(!$w->enabled) {
-				$w->secret = null;
-				$w->subscription_id = null;
-			}
-		});
-	}
-*/
 
 	// =========================================================================
 	public function callbacks(): HasMany {
@@ -72,5 +62,31 @@ class Watch extends Model implements Auditable {
 	// =========================================================================
 	public function listeners(): HasMany {
 		return $this->hasMany(Listener::class, 'watch_id', 'id');
+	}
+
+	// =========================================================================
+	public function watchable(): bool {
+		$now = Carbon::now();
+
+		$start =	$this->flight->alert_start;
+		$end =		$this->flight->alert_end;
+
+		Log::debug("Start = $start");
+		Log::debug("End = $end");
+
+
+		return $start->lte($now->startOfDay())
+				&& $end->gte($now->endOfDay())
+		;
+//		$new = Listener::with('watch.flight')
+//			->whereHas('watch', function($q) {
+//				return $q->where('enabled', false);
+//			})
+//			->whereHas('watch.flight', function($q) use($now) {
+//				return $q->where('alert_start', '<=', $now->startOfDay())
+//					->where('alert_end', '>=', $now->endOfDay())
+//				;
+//			})
+//		;
 	}
 }

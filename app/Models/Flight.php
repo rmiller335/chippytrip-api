@@ -15,6 +15,8 @@ class Flight extends Model implements Auditable {
 	use \OwenIt\Auditing\Auditable;
 
 	protected $casts = [
+		'alert_end' =>		'date',
+		'alert_start' =>	'date',
 		'arrival_dt' =>		'datetime:Y-m-d H:i:s',
 		'departure_dt' =>	'datetime:Y-m-d H:i:s',
 	];
@@ -50,20 +52,6 @@ class Flight extends Model implements Auditable {
 	// =========================================================================
 	public function destination(): HasOne {
 		return $this->hasOne(Airport::class, 'icao', 'destination_icao');
-	}
-
-	// =========================================================================
-	public function getAlertEndAttribute() {
-		$dd = new Carbon($this->arrival_date);
-
-		return $dd->addDay()->endOfDay();
-	}
-
-	// =========================================================================
-	public function getAlertStartAttribute() {
-		$dd = new Carbon($this->departure_date);
-
-		return $dd->subDay()->startOfDay();
 	}
 
 	// =========================================================================
