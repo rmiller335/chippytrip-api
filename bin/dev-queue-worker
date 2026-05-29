@@ -1,6 +1,4 @@
 #!/usr/bin/bash
 
 cd "$(dirname "$(realpath "$BASH_SOURCE")")/.."
-
-find app database/seeders -name '*.php' | \
-	entr -n -r sh -c 'echo -n "Working at " && date "+%Y-%m-%d %H:%M:%S" && ./artisan queue:work'
+./artisan queue:listen > storage/logs/queue-worker.log 2>&1

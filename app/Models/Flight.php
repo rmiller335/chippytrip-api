@@ -17,6 +17,7 @@ class Flight extends Model implements Auditable {
 	protected $casts = [
 		'alert_end' =>		'date',
 		'alert_start' =>	'date',
+		'departure_date' =>	'datetime',
 		'arrival_dt' =>		'datetime:Y-m-d H:i:s',
 		'departure_dt' =>	'datetime:Y-m-d H:i:s',
 	];
@@ -37,10 +38,16 @@ class Flight extends Model implements Auditable {
 	protected static function booted(): void {
 		static::saving(function(Flight $flt) {
 			$departure = new Carbon($flt->departure_date);
-			$arrival = new Carbon($flt->arrival_dt);
 
-			$flt->alert_start = $departure->subDay()->startOfDay();
-			$flt->alert_end = $arrival->addDay()->endOfDay();
+			$flt->alert_start = $departure->copy()->subDay()->startOfDay();
+			$flt->alert_end = $departure->copy()->addDays(2)->endOfDay();
+
+			if($flt->departure_dt && $flt->arrival_dt) {
+				$dep = new Carbon($flt->departure_dt);
+				$arr = new Carbon($flt->arrival_dt);
+
+				$flt->duration = $dep->diffInMinutes($arr);
+			}
 		});
 	}
 
@@ -52,6 +59,14 @@ class Flight extends Model implements Auditable {
 	// =========================================================================
 	public function destination(): HasOne {
 		return $this->hasOne(Airport::class, 'icao', 'destination_icao');
+	}
+
+	// =========================================================================
+	public static function icaoFromFlightNum(string $flightNo): string {
+		$iata = substr($flightNo, 0, 2);
+		$airline = Airline::where('iata', $iata)->first();
+
+		return $airline->icao;
 	}
 
 	// =========================================================================

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Flight;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -62,9 +63,13 @@ class FlightAwareSvc {
 	}
 
 	// =========================================================================
-	public function flightInfo(string $ident) {
+	public function flightInfo(string $ident, Carbon $start, Carbon $end) {
 		$resp = Http::withHeaders([
 			'x-apikey' =>	$this->key,
+		])
+		->withQueryParameters([
+			'start' =>	$start->toIso8601String(),
+			'end' =>	$end->toIso8601String(),
 		])
 		->get($this->url . '/flights/' . $ident);
 
@@ -72,6 +77,42 @@ class FlightAwareSvc {
 		$r->flights = collect($r->flights);
 
 		return $r;
+	}
+
+	// =========================================================================
+	public function flightSchedule(Flight $flight) {
+		$start = $flight->departure_date->copy()->startOfDay();
+		$end = $flight->departure_date->copy()->endOfDay();
+
+		$url = implode('/', [
+			$this->url,
+			'schedules',
+			$start->toIso8601ZuluString(),
+			$end->toIso8601ZuluString()
+		]);
+
+		$resp = Http::withHeaders([
+			'x-apikey' =>	$this->key,
+		])
+		->withQueryParameters([
+			'airline' =>		$flight->airline_icao,
+			'flight_number' =>	$flight->flight_no,
+			'origin' =>			$flight->origin_icao,
+			'destination' =>	$flight->destination_icao,
+		])
+		->get($url);
+
+		$data = $resp->json();
+
+		if(isset($data['scheduled'])) {
+			foreach($data['scheduled'] as $entry) {
+				if($entry['ident_iata'] == $flight->flight) {
+					return arrayToObject($entry);
+				}
+			}
+		}
+
+		return null;
 	}
 
 	// =========================================================================
@@ -140,25 +181,6 @@ class FlightAwareSvc {
 		string $ident, string $org, string $dest, Carbon $startDate, $secret)
 	{
 		$target = url(config('flightaware.callback')) . '?s=' . $secret;
-
-		Log::debug(json_encode([
-			'ident' =>			$ident,
-			'origin' =>			$org,
-			'destination' =>	$dest,
-			'start' =>			$startDate->format('Y-m-d'),
-			'events' => [
-				'arrival' =>	true,
-				'cancelled' =>	true,
-				'departure' =>	true,
-				'diverted' =>	true,
-				'filed' =>		true,
-				'out' =>		true,
-				'in' =>			true,
-				'hold_start' =>	true,
-				'hold_end' =>	true,
-			],
-			'target_url' =>		$target,
-		], JSON_PRETTY_PRINT));
 
 		$resp = Http::withOptions([ 'debug' => false ])
 		->withHeaders([
