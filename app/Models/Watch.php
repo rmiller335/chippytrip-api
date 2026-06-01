@@ -78,15 +78,5 @@ class Watch extends Model implements Auditable {
 		return $start->lte($now->startOfDay())
 				&& $end->gte($now->endOfDay())
 		;
-//		$new = Listener::with('watch.flight')
-//			->whereHas('watch', function($q) {
-//				return $q->where('enabled', false);
-//			})
-//			->whereHas('watch.flight', function($q) use($now) {
-//				return $q->where('alert_start', '<=', $now->startOfDay())
-//					->where('alert_end', '>=', $now->endOfDay())
-//				;
-//			})
-//		;
 	}
 }

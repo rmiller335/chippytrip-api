@@ -3,10 +3,13 @@
 namespace Database\Seeders;
 
 use App\Jobs\AddFlightDetails;
+use App\Jobs\EnableWatch;
 use App\Models\Airport;
 use App\Models\Flight;
+use App\Models\User;
 use App\Services\FlightLookupSvc;
 use Carbon\Carbon;
+use Faker\Factory;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
@@ -93,6 +96,9 @@ class FlightRotationSeeder extends Seeder {
 		$startDate = Carbon::now()->startOfDay();
 		$endDate = $startDate->copy()->addDays(7);
 
+		$user = User::where('email', 'rmiller@villamilla.com')->first();
+		$faker = Factory::create();
+
 		for($date = $startDate ; $date->lessThan($endDate) ; $date->addDay()) {
 			$flights = $this->flights->get($date->dayName);
 //			Log::debug(json_encode($flights, JSON_PRETTY_PRINT));
@@ -126,6 +132,30 @@ class FlightRotationSeeder extends Seeder {
 					]);
 
 					AddFlightDetails::dispatch($flightRec);
+
+					$watchRec = $flightRec->watch;
+
+					if(null == $watchRec) {
+						$watchRec = $flightRec->watch()->create([
+							'enabled' =>	false,
+						]);
+					}
+
+					if(0 == $watchRec->listeners->count()) {
+						$travelers = implode(' and ' , [
+							$faker->firstName,
+							$faker->firstName
+						]);
+
+						$watchRec->listeners()->create([
+							'user_id' =>	$user->id,
+							'travelers' =>	$travelers,
+						]);
+					}
+
+					if($watchRec->watchable()) {
+						EnableWatch::dispatch($watchRec);
+					}
 				}
 			}
 		}
