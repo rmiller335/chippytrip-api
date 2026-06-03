@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\WatchCallback;
+use App\Traits\Callback;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -13,15 +14,10 @@ use NotificationChannels\Pushover\PushoverMessage;
 
 // =============================================================================
 class Arrival extends Notification {
-    use Queueable;
+    use Callback, Queueable;
 
     // =========================================================================
     public function __construct(protected WatchCallback $callback) {
-    }
-
-    // =========================================================================
-    public function via(object $notifiable): array {
-        return $notifiable->channel_ids->toArray();
     }
 
     // =========================================================================
@@ -38,11 +34,5 @@ class Arrival extends Notification {
             ->title($this->callback->summary)
             ->content($this->callback->long_description)
         ;
-    }
-
-    // =========================================================================
-    public function toArray(object $notifiable): array {
-        return [
-        ];
     }
 }

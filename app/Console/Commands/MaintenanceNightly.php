@@ -57,8 +57,6 @@ class MaintenanceNightly extends Command {
 			})
 		;
 
-		Log::debug("enableNew: found " . $new->count() . " new");
-
 		foreach($new->lazy(200) as $l) {
 			EnableWatch::dispatch($l->watch);
 		}

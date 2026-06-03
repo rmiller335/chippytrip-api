@@ -41,8 +41,6 @@ class FlightRotationSeeder extends Seeder {
 				foreach($ci as $cell) {
 					$colNo = $cell->getColumn();
 
-					Log::debug("$colNo: " . $cell->getValue());
-
 					switch($colNo) {
 						// Day of week
 						case 'A':	$day = $cell->getValue();
@@ -77,9 +75,6 @@ class FlightRotationSeeder extends Seeder {
 			}
 		}
 
-		Log::debug("Flights = ...");
-		Log::debug(json_encode($flights, JSON_PRETTY_PRINT));
-
 		return $flights;
 	}
 
@@ -101,7 +96,6 @@ class FlightRotationSeeder extends Seeder {
 
 		for($date = $startDate ; $date->lessThan($endDate) ; $date->addDay()) {
 			$flights = $this->flights->get($date->dayName);
-//			Log::debug(json_encode($flights, JSON_PRETTY_PRINT));
 
 			foreach($flights as $flight) {
 				$flightRec = Flight::where('flight', $flight->get('flight'))
@@ -112,16 +106,6 @@ class FlightRotationSeeder extends Seeder {
 				;
 
 				if(null == $flightRec) {
-					Log::debug("Adding flight ...");
-					Log::debug(json_encode([
-						'airline_icao' =>		$flight->get('icao'),
-						'flight_no' =>			substr($flight->get('flight'), 2),
-						'flight' =>				$flight->get('flight'),
-						'origin_icao' =>		$flight->get('from'),
-						'destination_icao' =>	$flight->get('to'),
-						'departure_date' =>		$date,
-					], JSON_PRETTY_PRINT));
-
 					$flightRec = Flight::create([
 						'airline_icao' =>		$flight->get('icao'),
 						'flight_no' =>			substr($flight->get('flight'), 2),

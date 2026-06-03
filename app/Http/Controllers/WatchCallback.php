@@ -12,11 +12,6 @@ use Illuminate\Support\Facades\Log;
 class WatchCallback extends Controller {
 	// =========================================================================
 	public function callback(Request $request) {
-		Log::debug("WatchCallback::calback ...");
-
-		Log::debug("s = " . $request->input('s'));
-		Log::debug("Long description: " . $request->input('long_description'));
-
 		$secret = $request->input('s');
 
 		$wc = \App\Models\WatchCallback::FromApiPayload($request->json()->all(), $request->ip());
@@ -29,9 +24,14 @@ class WatchCallback extends Controller {
 
 		$wc->save();
 
-		foreach($wc->watch->listeners as $listener) {
-			$job = new SendNotification($wc, $listener->user);
-			dispatch($job);
+		$depDate = $wc->scheduled_out->copy()->startOfDay();
+
+		if($watch->flight->departure_date->eq($depDate)) {
+			foreach($wc->watch->listeners as $listener) {
+				$job = new SendNotification($wc, $listener->user);
+
+				dispatch($job);
+			}
 		}
 
 		return response(null, 200);

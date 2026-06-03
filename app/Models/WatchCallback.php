@@ -223,7 +223,6 @@ class WatchCallback extends Model {
 	public function notification(): ?Notification {
 		$type = Str::studly($this->event_code);
 		$class = 'App\\Notifications\\' . $type;
-		Log::debug("notification: $class");
 
 		return new $class($this);
 	}

@@ -71,10 +71,6 @@ class Watch extends Model implements Auditable {
 		$start =	$this->flight->alert_start;
 		$end =		$this->flight->alert_end;
 
-		Log::debug("Start = $start");
-		Log::debug("End = $end");
-
-
 		return $start->lte($now->startOfDay())
 				&& $end->gte($now->endOfDay())
 		;
