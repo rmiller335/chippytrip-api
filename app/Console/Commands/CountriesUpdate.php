@@ -89,8 +89,6 @@ class CountriesUpdate extends Command {
 
 			if($current) {
 				if(!$current->equal($newRec)) {
-					Log::debug("Update $newRec->iso2");
-
 					$current->update($newRec->toArray());
 				}
 			}

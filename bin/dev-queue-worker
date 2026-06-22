@@ -1,4 +1,15 @@
 #!/usr/bin/bash
 
 cd "$(dirname "$(realpath "$BASH_SOURCE")")/.."
-./artisan queue:listen > storage/logs/queue-worker.log 2>&1
+
+echo "Waiting for MySql..." > storage/logs/queue-worker.log 2>&1
+
+until nc -z 127.0.0.1 3306
+do
+	sleep 5
+done
+
+echo "MySql is available ..." >& storage/logs/queue-worker.log 2>&1
+sleep 5
+
+./artisan queue:listen >& storage/logs/queue-worker.log 2>&1

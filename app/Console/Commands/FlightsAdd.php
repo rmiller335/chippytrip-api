@@ -36,8 +36,6 @@ class FlightsAdd extends Command {
 
 		null == $flightInfo && $this->fail("No flights found");
 
-		Log::debug(json_encode($flightInfo, JSON_PRETTY_PRINT));
-
 		$depAirport = Airport::where(
 			'iata', $flightInfo->DepartureAirport->attributes->LocationCode
 		)->first();

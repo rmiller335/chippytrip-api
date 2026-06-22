@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\NotificationsIndex;
 use App\Jobs\SendNotification;
 use App\Models\Watch;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 
 // =============================================================================
@@ -28,9 +30,10 @@ class WatchCallback extends Controller {
 
 		if($watch->flight->departure_date->eq($depDate)) {
 			foreach($wc->watch->listeners as $listener) {
-				$job = new SendNotification($wc, $listener->user);
-
-				dispatch($job);
+				Bus::chain([
+					new SendNotification($wc, $listener->user),
+					new NotificationsIndex(),
+				])->dispatch();
 			}
 		}
 

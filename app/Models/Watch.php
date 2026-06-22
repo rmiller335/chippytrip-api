@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Flight;
 use App\Models\WatchCallback;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -64,6 +65,15 @@ class Watch extends Model implements Auditable {
 		return $this->hasMany(Listener::class, 'watch_id', 'id');
 	}
 
+	// =========================================================================
+    public function notifications(): BelongsToMany {
+        return $this->belongsToMany(
+            \Illuminate\Notifications\DatabaseNotification::class,
+            'watches_notifications',  // your pivot table
+            'watch_id',               // FK for Watch
+            'notification_id',        // FK for DatabaseNotification
+        );
+    }
 	// =========================================================================
 	public function watchable(): bool {
 		$now = Carbon::now();

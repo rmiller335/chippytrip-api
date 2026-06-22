@@ -25,7 +25,6 @@ class FlightLookupSvc {
 			$destination,
 			$date
 		]);
-		Log::debug("FlightLookup: $url");
 
 		$resp = Http::withOptions([
 			'debug' =>	false,

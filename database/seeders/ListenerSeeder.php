@@ -53,8 +53,6 @@ class ListenerSeeder extends Seeder {
 
 		$flight->save();
 
-		Log::debug(json_encode($flight, JSON_PRETTY_PRINT));
-
 		return $flight;
 	}
 

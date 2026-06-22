@@ -85,11 +85,6 @@ class AviationEdgeSvc {
 	public function futureFlight(
 		string $iata, string $date, string $airlineIcao, string $flightNum
 	) {
-		Log::debug("futureFlight: iata = $iata");
-		Log::debug("futureFlight: date = $date");
-		Log::debug("futureFlight: airlineIcao = $airlineIcao");
-		Log::debug("futureFlight: flightNum = $flightNum");
-
 		$url = $this->urlFor('/flightsFuture');
 
 		$response = Http::retry(3, 5000)

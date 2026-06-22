@@ -177,6 +177,22 @@ class FlightAwareSvc {
 	}
 
 	// =========================================================================
+	public function watchById($watchId): ?object {
+		$url = $this->url . '/alerts/' . $watchId;
+
+		$resp = Http::withHeaders([
+			'x-apikey' =>	$this->key,
+		])->get($url);
+
+		if($resp->successful()) {
+			return $resp->object();
+		}
+		else {
+			return null;
+		}
+	}
+
+	// =========================================================================
 	public function watchCreate(
 		string $ident, string $org, string $dest, Carbon $startDate, $secret)
 	{
@@ -211,8 +227,6 @@ class FlightAwareSvc {
 			$connection = str_replace('/alerts/', '', $connection);
 		}
 		else {
-			Log::debug(json_encode($resp->json(), JSON_PRETTY_PRINT));
-
 			abort(500);
 		}
 
@@ -221,10 +235,12 @@ class FlightAwareSvc {
 
 	// =========================================================================
 	public function watchDelete(string $watchId) {
+		$url = $this->url . '/alerts/' . $watchId;
+
 		$resp = Http::withHeaders([
 			'x-apikey' =>	$this->key,
 		])
-			->delete($this->url . '/alerts/' . $watchId)
+			->delete($url)
 		;
 	}
 
@@ -240,23 +256,28 @@ class FlightAwareSvc {
 	}
 
 	// =========================================================================
-	public function watchList() {
-		$url = $this->url . '/alerts';
+	public function watchList(): array {
+		$url    = $this->url . '/alerts';
 		$alerts = [];
 
 		do {
 			$resp = Http::withHeaders([
-				'x-apikey' =>	$this->key,
-			])
-				->get($this->url . '/alerts')
-			;
+				'x-apikey' => $this->key,
+			])->get($url);
 
-			$alerts = array_merge($alerts, $resp->json()['alerts']);
-		} while(null != $resp->json()['links']);
+			$body    = $resp->json();
+			$alerts  = array_merge($alerts, $body['alerts'] ?? []);
+			$nextUrl = $body['links']['next'] ?? null;
+			$url     = $nextUrl ? $this->url . $nextUrl : null;
 
-		for($i = 0 ; $i < count($alerts) ; ++$i) {
-			$alerts[$i] = arrayToObject($alerts[$i]);
-		}
+		} while ($url !== null);
+
+		$alerts = array_map(fn($a) => arrayToObject($a), $alerts);
+
+		// Ugly, but FA erroneously returns deleted alerts.
+		$alerts = array_filter($alerts, function($a) {
+			return null != $this->watchById($a->id);
+		});
 
 		return $alerts;
 	}

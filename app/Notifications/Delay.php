@@ -13,7 +13,7 @@ use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverMessage;
 
 // =============================================================================
-class DepartureDelay extends Notification {
+class Delay extends Notification {
     use Queueable, Callback;
 
     // =========================================================================
