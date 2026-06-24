@@ -15,6 +15,7 @@ class UserChannel extends Model {
 	];
 
 	protected $fillable = [
+		'user_id',
 		'channel',
 		'credentials',
 	];

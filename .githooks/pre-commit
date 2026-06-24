@@ -1,9 +1,17 @@
 #!/bin/sh
-# Runs PHPStan before allowing a commit. Bypass with `git commit --no-verify`.
+# Runs PHPStan and the safe (SQLite, faked HTTP) test suite before allowing a
+# commit. Bypass with `git commit --no-verify`.
 
 vendor/bin/phpstan analyse --memory-limit=1G
 
 if [ $? -ne 0 ]; then
 	echo "PHPStan found errors. Commit aborted."
+	exit 1
+fi
+
+vendor/bin/phpunit -c phpunit-safe.xml
+
+if [ $? -ne 0 ]; then
+	echo "Safe test suite failed. Commit aborted."
 	exit 1
 fi

@@ -12,6 +12,10 @@ use OwenIt\Auditing\Contracts\Auditable;
 class Airport extends Model implements Auditable {
 	use \OwenIt\Auditing\Auditable;
 
+	protected $casts = [
+		'alternatives' =>	'array',
+	];
+
 	protected $fillable = [
 		'icao',
 		'iata',
@@ -22,6 +26,7 @@ class Airport extends Model implements Auditable {
 		'latitude',
 		'timezone',
 		'country_code',
+		'elevation',
 		'wiki_url',
 		'flights_url',
 		'alternatives',

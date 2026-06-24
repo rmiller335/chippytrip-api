@@ -23,6 +23,10 @@ class Watch extends Model implements Auditable {
 		'enabled' =>	false,
 	];
 
+	protected $casts = [
+		'enabled' =>	'boolean',
+	];
+
 	protected $fillable = [
 		'flight_id',
 		'subscription_id',

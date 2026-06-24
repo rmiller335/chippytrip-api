@@ -39,16 +39,17 @@ class AddFlightDetails implements ShouldQueue {
 			$start = $this->flight->departure_date->copy()->startOfDay();
 			$end = $this->flight->departure_date->copy()->endOfDay();
 
-			$info = $fa->flightInfo($this->flight, $start, $end);
+			$info = $fa->flightInfo($this->flight->flight, $start, $end);
+			$match = $info->flights->firstWhere('ident_iata', $this->flight->flight);
 
-			if(null != $info) {
-				$this->flight->departure_dt =	new Carbon($info->scheduled_out);
-				$this->flight->arrival_dt =		new Carbon($info->scheduled_in);
-				$this->flight->equipment =		$info->aircraft_type;
-				$this->flight->meal_service =	$info->meal_service;
-				$this->flight->first_seats =	$info->seats_cabin_first;
-				$this->flight->business_seats =	$info->seats_cabin_business;
-				$this->flight->coach_seats =	$info->seats_cabin_coach;
+			if(null != $match) {
+				$this->flight->departure_dt =	new Carbon($match->scheduled_out);
+				$this->flight->arrival_dt =		new Carbon($match->scheduled_in);
+				$this->flight->equipment =		$match->aircraft_type;
+				$this->flight->meal_service =	$match->meal_service;
+				$this->flight->first_seats =	$match->seats_cabin_first;
+				$this->flight->business_seats =	$match->seats_cabin_business;
+				$this->flight->coach_seats =	$match->seats_cabin_coach;
 
 				$this->flight->update();
 
