@@ -132,13 +132,13 @@ class WatchCallback extends Model {
      * @param  array       $payload  Decoded JSON body from FlightAware
      * @param  string|null $sourceIp Source IP of the incoming request
      */
-    public static function fromApiPayload(array $payload, ?string $sourceIp = null): static
+    public static function fromApiPayload(array $payload, ?string $sourceIp = null): self
     {
         $flight = $payload['flight'] ?? [];
         $origin = $flight['origin'] ?? [];
         $dest   = $flight['destination'] ?? [];
  
-        return new static([
+        return new self([
             // Envelope
             'alert_id'          => $payload['alert_id'] ?? null,
             'event_code'        => $payload['event_code'] ?? null,

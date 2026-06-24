@@ -41,7 +41,7 @@ class CountriesUpdate extends Command {
 
 			$data = [];
 
-			if ($table) {
+			if ($table instanceof \DOMElement) {
 				$rows = $table->getElementsByTagName("tr");
 
 				foreach ($rows as $i => $row) {
@@ -75,6 +75,8 @@ class CountriesUpdate extends Command {
 		}
 		else {
 			$this->error($response->body());
+
+			return [];
 		}
 	}
 

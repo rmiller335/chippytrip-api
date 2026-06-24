@@ -56,13 +56,6 @@ class FlightAwareSvc {
 	}
 
 	// =========================================================================
-	public function flightIdent(string $flight) {
-		$info = $this->flightInfo($flight);
-
-		return $info->flights[0]->ident_icao;
-	}
-
-	// =========================================================================
 	public function flightInfo(string $ident, Carbon $start, Carbon $end) {
 		$resp = Http::withHeaders([
 			'x-apikey' =>	$this->key,

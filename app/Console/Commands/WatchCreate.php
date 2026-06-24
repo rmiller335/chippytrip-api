@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\EnableWatch;
 use App\Models\Flight;
 use App\Models\Watch;
 use App\Services\FlightAwareSvc;

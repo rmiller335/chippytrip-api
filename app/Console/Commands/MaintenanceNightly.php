@@ -38,7 +38,9 @@ class MaintenanceNightly extends Command {
 		;
 
 		foreach($old->lazy(200) as $l) {
-			DisableWatch::dispatch($l->watch);
+			if($l->watch instanceof Watch) {
+				DisableWatch::dispatch($l->watch);
+			}
 		}
 	}
 
@@ -58,7 +60,9 @@ class MaintenanceNightly extends Command {
 		;
 
 		foreach($new->lazy(200) as $l) {
-			EnableWatch::dispatch($l->watch);
+			if($l->watch instanceof Watch) {
+				EnableWatch::dispatch($l->watch);
+			}
 		}
 	}
 

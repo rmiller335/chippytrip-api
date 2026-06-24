@@ -71,7 +71,7 @@ class AirportsUpdate extends Command {
 					elseif(null != $country) {
 						Log::debug("Adding airport $row[3]");
 
-						$tz = $tzsvc->timezone($row[4], $row[5]);
+						$tz = $tzsvc->timezone((float) $row[4], (float) $row[5]);
 						$row[6] = ('' == $row[6]) ? null : $row[6];
 
 						$airport = Airport::create([

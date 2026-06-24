@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Jobs\NotificationsIndex;
 use App\Jobs\SendNotification;
 use App\Models\Watch;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
@@ -38,10 +37,5 @@ class WatchCallback extends Controller {
 		}
 
 		return response(null, 200);
-	}
-
-	// =========================================================================
-	public function watch(): BelongsTo {
-		return $this->belongsTO(Watch::class, 'subscription_id', 'alert_id');
 	}
 }

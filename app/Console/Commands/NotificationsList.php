@@ -12,6 +12,7 @@ use Symfony\Component\Console\Formatter\OutputFormatterStyle;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Helper\TableCell;
 use Symfony\Component\Console\Helper\TableCellStyle;
+use Symfony\Component\Console\Helper\TableSeparator;
 
 // =============================================================================
 class NotificationsList extends Command {
@@ -61,6 +62,7 @@ class NotificationsList extends Command {
 			new TableCell('Status', $hdrTextStyle),
 			new TableCell('# Listeners', $hdrNumStyle),
 			new TableCell('# Callbacks', $hdrNumStyle),
+			new TableCell('# Notifications', $hdrNumStyle),
 		];
 
 		$flights->chunk(25, function($chunk) use($hdr, $defaultStyle, $enabledStyle, $numberStyle) {
@@ -69,18 +71,44 @@ class NotificationsList extends Command {
 			foreach($chunk as $flight) {
 				$row = [];
 
+				if($flight->watch->notifications->count()) {
+					$last = $data[array_key_last($data)];
+
+					if(is_object($last) && TableSeparator::class != get_class($last)) {
+						$data[] = new TableSeparator();
+					}
+				}
+
 				$row = [
-					new TableCell($flight->id, $defaultStyle),
+					new TableCell((string) $flight->id, $defaultStyle),
 					new TableCell($flight->flight, $defaultStyle),
 					new TableCell($flight->departure_date->format('Y-m-d'), $defaultStyle),
 					new TableCell($flight->watch->enabled ? 'Enabled' : '', $enabledStyle),
 					new TableCell($flight->watch->listeners->count(), $numberStyle),
 					new TableCell($flight->watch->callbacks->count(), $numberStyle),
+					new TableCell($flight->watch->notifications->count(), $numberStyle),
 				];
 
 				$data[] = $row;
-			}
 
+				$notifications = [];
+
+				if($flight->watch->notifications->count()) {
+					foreach($flight->watch->notifications->sortBy('created_at') as $not) {
+						$notifications[] = $not->data['event'];
+					}
+
+					$data[] = [
+						new TableCell('>>>', $defaultStyle),
+						new TableCell(implode(' ', $notifications), [
+							'colspan' => 6,
+							'style' => $defaultStyle['style'],
+						]),
+					];
+
+					$data[] = new TableSeparator();
+				}
+			}
 
 			$table = new Table($this->output);
 			$table->setHeaders($hdr);

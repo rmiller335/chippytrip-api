@@ -35,7 +35,7 @@ class AddFlightDetails implements ShouldQueue {
 			return;
 		}
 
-		if($this->flight->departure_date->startOfDay() == Carbon::now()->startOfDay) {
+		if($this->flight->departure_date->startOfDay() == Carbon::now()->startOfDay()) {
 			$start = $this->flight->departure_date->copy()->startOfDay();
 			$end = $this->flight->departure_date->copy()->endOfDay();
 

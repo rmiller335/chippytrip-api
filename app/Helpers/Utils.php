@@ -15,7 +15,7 @@ function arrayToObject(array $array): stdClass {
 
 // =============================================================================
 function humanAirline(string $icao): string {
-	$airline = Airline::where('icao', $icao);
+	$airline = Airline::where('icao', $icao)->first();
 
 	return $airline->call_sign;
 }

@@ -4,11 +4,8 @@ namespace App\Models;
 
 use App\Models\Country;
 use App\Services\FlightAwareSvc;
-use App\Services\OpenWeatherSvc;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Facades\Log;
 use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
@@ -70,35 +67,5 @@ class Airport extends Model implements Auditable {
 		$ap = Airport::where('iata', $iata)->first();
 
 		return $ap->icao;
-	}
-
-	// =========================================================================
-	public function weatherAt(Carbon $dt): ?SpotForecast {
-		$ow = new OpenWeatherSvc;
-
-		$now = Carbon::now();
-
-		if(8 < $now->diffInDays($dt)) {
-			return null;
-		}
-
-		$forecast = $ow->forecast($this->latitude, $this->longitude);
-
-		if(1 < $now->diffInDays($dt)) {
-			foreach($forecast->daily as $daily) {
-				if(1 < $dt->diffInDays($daily->dt)) {
-					return $daily;
-				}
-			}
-		}
-		else {
-			foreach($forecast->hourly as $hourly) {
-				if(1 < $dt->diffInHours($hourly->dt)) {
-					return $hourly;
-				}
-			}
-		}
-
-		return $forecast;
 	}
 }

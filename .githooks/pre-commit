@@ -1,0 +1,9 @@
+#!/bin/sh
+# Runs PHPStan before allowing a commit. Bypass with `git commit --no-verify`.
+
+vendor/bin/phpstan analyse --memory-limit=1G
+
+if [ $? -ne 0 ]; then
+	echo "PHPStan found errors. Commit aborted."
+	exit 1
+fi

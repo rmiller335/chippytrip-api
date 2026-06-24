@@ -7,6 +7,7 @@ use App\Services\FlightAwareSvc;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
 // =============================================================================
 class EnableWatch implements ShouldQueue {

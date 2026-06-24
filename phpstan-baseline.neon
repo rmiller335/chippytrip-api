@@ -1,0 +1,79 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$callbacks\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Console/Commands/NotificationsList.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$enabled\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Console/Commands/NotificationsList.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$listeners\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Console/Commands/NotificationsList.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$notifications\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Console/Commands/NotificationsList.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$departure_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/WatchCallback.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$listeners\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/WatchCallback.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$alert_start\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/EnableWatch.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$destination_icao\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/EnableWatch.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$flight\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/EnableWatch.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$origin_icao\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/EnableWatch.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$credentials\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$alert_end\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Watch.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$alert_start\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Watch.php

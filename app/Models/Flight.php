@@ -46,7 +46,7 @@ class Flight extends Model implements Auditable {
 				$dep = new Carbon($flt->departure_dt);
 				$arr = new Carbon($flt->arrival_dt);
 
-				$flt->duration = $dep->diffInMinutes($arr);
+				$flt->duration = (int) $dep->diffInMinutes($arr);
 			}
 		});
 	}
