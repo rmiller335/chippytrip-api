@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+#
+# check_alert_consistency.sh
+#
+# Demonstrates a FlightAware AeroAPI inconsistency where a deleted alert
+# still appears in GET /alerts (list) but 404s when fetched individually
+# via GET /alerts/{id}.
+#
+# Usage:
+#   export AEROAPI_KEY="your-api-key-here"
+#   ./check_alert_consistency.sh
+#
+# Optional: pass a specific alert ID to check instead of the first one
+# in the list:
+#   ./check_alert_consistency.sh 123456
+#
+# Requires: curl, jq
+
+set -euo pipefail
+
+BASE_URL="https://aeroapi.flightaware.com/aeroapi"
+
+if [[ -z "${AEROAPI_KEY:-}" ]]; then
+    echo "Error: AEROAPI_KEY environment variable is not set." >&2
+    echo "  export AEROAPI_KEY=\"your-api-key-here\"" >&2
+    exit 1
+fi
+
+for cmd in curl jq; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "Error: required command '$cmd' not found in PATH." >&2
+        exit 1
+    fi
+done
+
+echo "=== Step 1: Fetching alert list ==="
+LIST_RESPONSE=$(curl -s -w "\n%{http_code}" \
+    --request GET \
+    --url "${BASE_URL}/alerts" \
+    --header "x-apikey: ${AEROAPI_KEY}" \
+    --header "Accept: application/json")
+
+LIST_HTTP_CODE=$(echo "$LIST_RESPONSE" | tail -n1)
+LIST_BODY=$(echo "$LIST_RESPONSE" | sed '$d')
+
+echo "HTTP status: ${LIST_HTTP_CODE}"
+
+if [[ "$LIST_HTTP_CODE" != "200" ]]; then
+    echo "Error: failed to fetch alert list." >&2
+    echo "$LIST_BODY" >&2
+    exit 1
+fi
+
+ALERT_COUNT=$(echo "$LIST_BODY" | jq '.alerts | length')
+echo "Alerts returned in list: ${ALERT_COUNT}"
+
+if [[ "$ALERT_COUNT" -eq 0 ]]; then
+    echo "No alerts in list. Nothing to check."
+    exit 0
+fi
+
+# Allow overriding which alert to check via first CLI arg, otherwise use
+# the first alert in the list.
+if [[ $# -ge 1 ]]; then
+    ALERT_ID="$1"
+    echo "Using alert ID passed on command line: ${ALERT_ID}"
+else
+    ALERT_ID=$(echo "$LIST_BODY" | jq -r '.alerts[0].id')
+    echo "Using first alert ID from list: ${ALERT_ID}"
+fi
+
+echo
+echo "--- Alert object as returned by list endpoint ---"
+echo "$LIST_BODY" | jq --arg id "$ALERT_ID" '.alerts[] | select(.id == ($id | tonumber))'
+
+echo
+echo "=== Step 2: Fetching that alert individually ==="
+GET_RESPONSE=$(curl -s -w "\n%{http_code}" \
+    --request GET \
+    --url "${BASE_URL}/alerts/${ALERT_ID}" \
+    --header "x-apikey: ${AEROAPI_KEY}" \
+    --header "Accept: application/json")
+
+GET_HTTP_CODE=$(echo "$GET_RESPONSE" | tail -n1)
+GET_BODY=$(echo "$GET_RESPONSE" | sed '$d')
+
+echo "HTTP status: ${GET_HTTP_CODE}"
+echo "Response body:"
+echo "$GET_BODY" | jq . 2>/dev/null || echo "$GET_BODY"
+
+echo
+echo "=== Result ==="
+if [[ "$GET_HTTP_CODE" == "404" ]]; then
+    echo "INCONSISTENCY CONFIRMED: alert ${ALERT_ID} appears in the list"
+    echo "endpoint (HTTP ${LIST_HTTP_CODE}) but returns 404 on direct lookup."
+elif [[ "$GET_HTTP_CODE" == "200" ]]; then
+    echo "No inconsistency observed for alert ${ALERT_ID}: it exists in"
+    echo "both the list and the direct lookup."
+else
+    echo "Unexpected status ${GET_HTTP_CODE} on direct lookup -- inspect"
+    echo "the response body above."
+fi

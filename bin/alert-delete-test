@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# --- Config ---
+AEROAPI_KEY="Sg471uUbuATe6WbZinOypJwjGVplnW0P"
+ALERT_ID="${1:?Usage: $0 <alert_id>}"
+BASE_URL="https://aeroapi.flightaware.com/aeroapi"
+
+echo "==> Deleting alert ${ALERT_ID}..."
+delete_response=$(curl -s -w "\n%{http_code}" \
+  -X DELETE \
+  -H "x-apikey: ${AEROAPI_KEY}" \
+  "${BASE_URL}/alerts/${ALERT_ID}")
+
+delete_body=$(echo "$delete_response" | sed '$d')
+delete_status=$(echo "$delete_response" | tail -n1)
+
+echo "Delete status: ${delete_status}"
+if [ -n "$delete_body" ]; then
+  echo "Delete body: ${delete_body}"
+fi
+
+if [ "$delete_status" != "204" ]; then
+  echo "ERROR: Expected 204 No Content from delete, got ${delete_status}" >&2
+  exit 1
+fi
+
+echo "==> Retrieving alert ${ALERT_ID} to confirm deletion..."
+get_response=$(curl -s -w "\n%{http_code}" \
+  -X GET \
+  -H "x-apikey: ${AEROAPI_KEY}" \
+  "${BASE_URL}/alerts/${ALERT_ID}")
+
+get_body=$(echo "$get_response" | sed '$d')
+get_status=$(echo "$get_response" | tail -n1)
+
+echo "Get status: ${get_status}"
+echo "Get body: ${get_body}"
+
+if [ "$get_status" == "404" ]; then
+  echo "Confirmed: alert ${ALERT_ID} no longer exists."
+elif [ "$get_status" == "200" ]; then
+  echo "WARNING: alert ${ALERT_ID} still exists after delete!" >&2
+  exit 1
+else
+  echo "Unexpected status on GET: ${get_status}" >&2
+  exit 1
+fi
