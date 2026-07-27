@@ -5,17 +5,13 @@ namespace Tests\Feature;
 use App\Models\Watch;
 use App\Models\FlightAwareCallback;
 use App\Http\Controllers\WatchCallback;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 class WatchCallbackTest extends TestCase
 {
-	use DatabaseTransactions;
-
     // =========================================================================
     // Helpers
     // =========================================================================

@@ -27,7 +27,9 @@
 		<env name="DB_CONNECTION" value="mysql"/>
 		<env name="DB_HOST" value="127.0.0.1"/>
 		<env name="DB_PORT" value="3306"/>
-		<env name="DB_DATABASE" value="chippytrip_api"/>
+		<env name="DB_DATABASE" value="chippytrip_api_testing"/>
+		<env name="DB_USERNAME" value="chippy_test"/>
+		<env name="DB_PASSWORD" value="6Qy3yhkktZNNtYYT98udyOdq"/>
 
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

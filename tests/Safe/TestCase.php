@@ -8,10 +8,14 @@ use App\Models\Country;
 use App\Models\Flight;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Http;
-use Tests\TestCase as BaseTestCase;
 
 // =============================================================================
+// Extends the framework's TestCase directly (not Tests\TestCase) because that
+// class uses DatabaseTransactions, which conflicts with RefreshDatabase below:
+// both would try to open a transaction and PDO throws "already an active
+// transaction".
 abstract class TestCase extends BaseTestCase {
 	use RefreshDatabase;
 
