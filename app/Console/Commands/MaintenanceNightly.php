@@ -19,9 +19,6 @@ use Illuminate\Support\Facades\Log;
 #[Signature('maintenance:nightly')]
 #[Description('Command description')]
 class MaintenanceNightly extends Command {
-	protected array $alerts;
-    protected FlightAwareSvc $fa;
-
 	// =========================================================================
 	protected function disableOld() {
 		$now = Carbon::now('UTC');
@@ -68,25 +65,22 @@ class MaintenanceNightly extends Command {
 
 	// =========================================================================
     public function handle(FlightAwareSvc $fa) {
-		$this->fa = $fa;
-		$this->alerts = $this->fa->watchList();
-
-		DB::transaction(function() {
-			$this->syncAlerts();
+		DB::transaction(function() use($fa){
 			$this->disableOld();
 			$this->enableNew();
+			$this->pruneAlerts($fa);
 		});
     }
 
 	// =========================================================================
-	protected function syncAlerts() {
-		Watch::query()->update([ 'enabled' => false ]);
+	protected function pruneAlerts(FlightAwareSvc $fa) {
+		$alerts = $fa->watchList();
 
-		foreach($this->alerts as $alert) {
+		foreach($alerts as $alert) {
 			$watch = Watch::where('subscription_id', $alert->id)->first();
 
-			if(null != $watch) {
-				$watch->update([ 'enabled' => true ]);
+			if(null == $watch) {
+				$fa->watchDelete($alert->id);
 			}
 		}
 	}

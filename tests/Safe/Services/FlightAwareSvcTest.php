@@ -30,22 +30,23 @@ class FlightAwareSvcTest extends TestCase {
 	}
 
 	// =========================================================================
-	public function test_watch_list_paginates_and_filters_deleted_alerts(): void {
+	public function test_watch_list_paginates_across_pages(): void {
 		Http::fake([
 			'*/alerts' => Http::response([
 				'alerts' => [['id' => 'SUB1'], ['id' => 'SUB2']],
 				'links' => ['next' => '/alerts?cursor=2'],
 			], 200),
 			'*alerts?cursor=2' => Http::response(['alerts' => [['id' => 'SUB3']]], 200),
-			'*/alerts/SUB1' => Http::response(['id' => 'SUB1'], 200),
-			// SUB2 has been deleted on FlightAware's side.
-			'*/alerts/SUB2' => Http::response(null, 404),
-			'*/alerts/SUB3' => Http::response(['id' => 'SUB3'], 200),
 		]);
 
 		$alerts = (new FlightAwareSvc())->watchList();
 
-		$this->assertSame(['SUB1', 'SUB3'], array_values(array_map(fn ($a) => $a->id, $alerts)));
+		$this->assertSame(['SUB1', 'SUB2', 'SUB3'], array_values(array_map(fn ($a) => $a->id, $alerts)));
+
+		// watchList() must not do a per-alert existence check: FlightAware's
+		// single-alert endpoint lags the list feed, so that check could 404 on
+		// an alert that was only just created and wrongly drop it.
+		Http::assertNotSent(fn ($request) => str_contains($request->url(), '/alerts/SUB'));
 	}
 
 	// =========================================================================

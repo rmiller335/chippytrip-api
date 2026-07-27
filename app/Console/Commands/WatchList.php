@@ -15,6 +15,7 @@ class WatchList extends Command {
 	// =========================================================================
     public function handle(FlightAwareSvc $fa) {
 		$list = $fa->watchList();
+		Log::debug(json_encode($list, JSON_PRETTY_PRINT));
 
 		$headers = [ 'Id', ' Subs Id', 'Flight', 'Origin', 'Destination', 'Start', 'End' ];
 

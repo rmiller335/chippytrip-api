@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 
 // =============================================================================
 #[Signature('watch:clear')]
-#[Description('Command description')]
+#[Description('Clear all flightaware alerts')]
 class WatchClear extends Command {
 	// =========================================================================
     public function handle(FlightAwareSvc $fa) {

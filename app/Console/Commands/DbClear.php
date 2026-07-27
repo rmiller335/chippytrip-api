@@ -11,6 +11,7 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 // =============================================================================
@@ -46,5 +47,8 @@ class DbClear extends Command {
 				$notification->delete();
 			}
 		});
+
+		DB::table('jobs')->truncate();
+		DB::table('failed_jobs')->truncate();
     }
 }

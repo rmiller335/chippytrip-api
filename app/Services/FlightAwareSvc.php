@@ -190,6 +190,7 @@ class FlightAwareSvc {
 		string $ident, string $org, string $dest, Carbon $startDate, $secret)
 	{
 		$target = url(config('flightaware.callback')) . '?s=' . $secret;
+		$endDate = $startDate->copy()->addDays(3);
 
 		$resp = Http::withOptions([ 'debug' => false ])
 		->withHeaders([
@@ -200,6 +201,7 @@ class FlightAwareSvc {
 			'origin' =>			$org,
 			'destination' =>	$dest,
 			'start' =>			$startDate->format('Y-m-d'),
+			'end' =>			$endDate->format('Y-m-d'),
 			'events' => [
 				'arrival' =>	true,
 				'cancelled' =>	true,
@@ -229,12 +231,18 @@ class FlightAwareSvc {
 	// =========================================================================
 	public function watchDelete(string $watchId) {
 		$url = $this->url . '/alerts/' . $watchId;
+		Log::debug("watchDelete: $url");
 
 		$resp = Http::withHeaders([
 			'x-apikey' =>	$this->key,
 		])
 			->delete($url)
 		;
+
+		Log::debug("AeroAPI delete alert response\n" . json_encode([
+			'status' => $resp->status(),
+			'successful' => $resp->successful(),
+		], JSON_PRETTY_PRINT));
 	}
 
 	// =========================================================================
@@ -243,6 +251,7 @@ class FlightAwareSvc {
 			'x-apikey' =>	$this->key,
 		])
 			->get($this->url . '/alerts/' . $watchId)
+			->throw()
 		;
 
 		return arrayToObject($resp->json());
@@ -268,9 +277,9 @@ class FlightAwareSvc {
 		$alerts = array_map(fn($a) => arrayToObject($a), $alerts);
 
 		// Ugly, but FA erroneously returns deleted alerts.
-		$alerts = array_filter($alerts, function($a) {
-			return null != $this->watchById($a->id);
-		});
+//		$alerts = array_filter($alerts, function($a) {
+//			return null != $this->watchById($a->id);
+//		});
 
 		return $alerts;
 	}
