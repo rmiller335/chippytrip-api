@@ -17,3 +17,13 @@ Route::get('/user', function (Request $request) {
 Route::post('/watch-callback', [
 	App\Http\Controllers\WatchCallback::class, 'callback'
 ]);
+
+// Sync with mobile app.
+Route::middleware('auth:sanctum')->get('/sync/listeners', [
+	App\Http\Controllers\ListenerSyncController::class, 'index'
+]);
+
+// Set the FCM token for push notifications.
+Route::middleware('auth:sanctum')->post('/fcm-token', [
+	App\Http\Controllers\FcmTokenController::class, 'store'
+]);

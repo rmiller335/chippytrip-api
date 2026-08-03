@@ -18,6 +18,7 @@ class UserChannel extends Model {
 		'user_id',
 		'channel',
 		'credentials',
+		'identifier',
 	];
 
 	// =========================================================================
