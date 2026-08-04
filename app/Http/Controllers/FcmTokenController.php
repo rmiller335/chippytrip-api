@@ -18,7 +18,7 @@ class FcmTokenController extends Controller {
         ]);
 
         $request->user()->channels()->updateOrCreate(
-            ['channel' => 'fcm', 'identifier' => $request->device_id],
+            ['channel' => \App\Notifications\Channels\FcmChannel::class, 'identifier' => $request->device_id],
             ['credentials' => [ 'token' => $request->token ]]
         );
 

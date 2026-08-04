@@ -77,6 +77,46 @@ class WatchCallbackTest extends TestCase
     }
 
     /**
+     * Build a "scheduled" (not-yet-departed) FlightAware alert payload for the
+     * given Watch. Pulls flight/airport data straight from the database via
+     * buildPayload(), then overrides the timing fields so the flight looks
+     * scheduled rather than departed: no actual_* timestamps, status =
+     * "Scheduled", event_code = "filed".
+     */
+    protected function buildScheduledPayload(Watch $watch, array $overrides = []): array
+    {
+        $base = $this->buildPayload($watch);
+
+        $flight       = $watch->flight;
+        $depDate      = $flight->departure_date->copy()->startOfDay();
+        $scheduledOut = $depDate->copy()->setTime(14, 0, 0)->toIso8601ZuluString();
+
+        return array_merge($base, [
+            'event_code'        => 'filed',
+            'summary'           => "{$flight->ident} scheduled",
+            'short_description' => 'Flight is scheduled',
+            'long_description'  => "Flight {$flight->ident} is scheduled to depart.",
+            'flight'            => array_merge($base['flight'], [
+                'status'        => 'Scheduled',
+                'scheduled_out' => $scheduledOut,
+                'estimated_out' => $scheduledOut,
+                'actual_out'    => null,
+                'scheduled_off' => $scheduledOut,
+                'estimated_off' => $scheduledOut,
+                'actual_off'    => null,
+                'scheduled_on'  => null,
+                'estimated_on'  => null,
+                'actual_on'     => null,
+                'scheduled_in'  => null,
+                'estimated_in'  => null,
+                'actual_in'     => null,
+                'cancelled'     => false,
+                'diverted'      => false,
+            ]),
+        ], $overrides);
+    }
+
+    /**
      * Build a POST Request object as FlightAware would send it.
      */
     protected function buildRequest(Watch $watch, array $payloadOverrides = []): Request
@@ -236,6 +276,166 @@ public function test_invalid_secret_returns_403(): void
             \App\Jobs\SendNotification::class,
             \App\Jobs\NotificationsIndex::class,
         ]);
+    }
+
+    /**
+     * Pull the first enabled watch straight from the database (with its
+     * flight, airports, and listeners) and fire a "scheduled" callback for
+     * it — i.e. the flight hasn't departed yet, so no actual_* timestamps.
+     * The payload's alert_id matches the watch's subscription_id, so the
+     * controller finds the watch, saves the callback, and — since the
+     * scheduled date matches the flight's departure date — dispatches a
+     * notification job chain for each listener.
+     */
+    public function test_scheduled_callback_from_first_active_watch(): void
+    {
+        Bus::fake();
+
+        $watch = Watch::with(['flight.origin', 'flight.destination', 'listeners'])
+            ->where('enabled', true)
+            ->firstOrFail();
+
+        $payload = $this->buildScheduledPayload($watch);
+
+        $request = Request::create(
+            '/webhook/callback?s=' . $watch->secret,
+            'POST',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode($payload)
+        );
+        $request->headers->set('Content-Type', 'application/json');
+
+        $response = app(WatchCallback::class)->callback($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+
+        $this->assertDatabaseHas('watch_callbacks', [
+            'alert_id' => $watch->subscription_id,
+        ]);
+
+        Bus::assertChained([
+            \App\Jobs\SendNotification::class,
+            \App\Jobs\NotificationsIndex::class,
+        ]);
+    }
+
+    /**
+     * Fires a scheduled callback through the REAL pipeline (no Bus::fake(),
+     * queue forced to "sync") so SendNotification::handle() actually runs
+     * and $user->notify() actually hits the Pushover API with a live
+     * credential (see user_channels row for user 14).
+     */
+    public function test_scheduled_callback_sends_real_pushover_notification(): void
+    {
+        $originalQueueDefault = config('queue.default');
+        config(['queue.default' => 'sync']);
+
+        try {
+            $watch = Watch::with(['flight.origin', 'flight.destination', 'listeners.user'])
+                ->where('enabled', true)
+                ->firstOrFail();
+
+            $user = $watch->listeners->firstOrFail()->user;
+
+            $payload = $this->buildScheduledPayload($watch);
+
+            $request = Request::create(
+                '/webhook/callback?s=' . $watch->secret,
+                'POST',
+                [],
+                [],
+                [],
+                ['CONTENT_TYPE' => 'application/json'],
+                json_encode($payload)
+            );
+            $request->headers->set('Content-Type', 'application/json');
+
+            $response = app(WatchCallback::class)->callback($request);
+
+            $this->assertEquals(200, $response->getStatusCode());
+
+            $this->assertDatabaseHas('watch_callbacks', [
+                'alert_id' => $watch->subscription_id,
+            ]);
+
+            // The "database" channel runs alongside Pushover in via(), so a
+            // stored notification is a proxy that the real via() loop
+            // completed (i.e. Pushover didn't throw and abort it).
+            $this->assertDatabaseHas('notifications', [
+                'notifiable_id'   => $user->id,
+                'notifiable_type' => get_class($user),
+                'type'            => \App\Notifications\Filed::class,
+            ]);
+        } finally {
+            config(['queue.default' => $originalQueueDefault]);
+        }
+    }
+
+    /**
+     * Fires a scheduled callback through the REAL pipeline (no Bus::fake(),
+     * queue forced to "sync") so SendNotification::handle() actually runs
+     * and $user->notify() actually hits the FCM API with a live device
+     * token (see user_channels row for the fixture user, channel 'fcm').
+     *
+     * A successful send is verified two ways: no exception propagates out
+     * of the request, and the token row survives — FcmChannel prunes any
+     * token Firebase reports back as unknown/invalid, so a surviving row
+     * means Firebase accepted the message for that token.
+     */
+    public function test_scheduled_callback_sends_real_fcm_notification(): void
+    {
+        $originalQueueDefault = config('queue.default');
+        config(['queue.default' => 'sync']);
+
+        try {
+            $watch = Watch::with(['flight.origin', 'flight.destination', 'listeners.user'])
+                ->where('enabled', true)
+                ->firstOrFail();
+
+            $user = $watch->listeners->firstOrFail()->user;
+
+            $fcmChannel = \App\Models\UserChannel::where('user_id', $user->id)
+                ->where('channel', \App\Notifications\Channels\FcmChannel::class)
+                ->firstOrFail();
+
+            $payload = $this->buildScheduledPayload($watch);
+
+            $request = Request::create(
+                '/webhook/callback?s=' . $watch->secret,
+                'POST',
+                [],
+                [],
+                [],
+                ['CONTENT_TYPE' => 'application/json'],
+                json_encode($payload)
+            );
+            $request->headers->set('Content-Type', 'application/json');
+
+            $response = app(WatchCallback::class)->callback($request);
+
+            $this->assertEquals(200, $response->getStatusCode());
+
+            $this->assertDatabaseHas('watch_callbacks', [
+                'alert_id' => $watch->subscription_id,
+            ]);
+
+            $this->assertDatabaseHas('notifications', [
+                'notifiable_id'   => $user->id,
+                'notifiable_type' => get_class($user),
+                'type'            => \App\Notifications\Filed::class,
+            ]);
+
+            // If Firebase had reported the token as unknown/invalid,
+            // FcmChannel would have deleted this row.
+            $this->assertDatabaseHas('user_channels', [
+                'id' => $fcmChannel->id,
+            ]);
+        } finally {
+            config(['queue.default' => $originalQueueDefault]);
+        }
     }
 
     // =========================================================================

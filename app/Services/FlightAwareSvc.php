@@ -187,8 +187,7 @@ class FlightAwareSvc {
 
 	// =========================================================================
 	public function watchCreate(
-		string $ident, string $org, string $dest, Carbon $startDate, $secret)
-	{
+		string $ident, string $org, string $dest, Carbon $startDate, $secret) {
 		$target = url(config('flightaware.callback')) . '?s=' . $secret;
 		$endDate = $startDate->copy()->addDays(3);
 

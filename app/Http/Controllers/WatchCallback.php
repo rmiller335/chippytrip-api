@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Log;
 class WatchCallback extends Controller {
 	// =========================================================================
 	public function callback(Request $request) {
+		Log::debug("WatchCallback::callback() called with payload: " .
+			json_encode($request->json()->all(), JSON_PRETTY_PRINT)
+		);
 		$secret = $request->input('s');
 
 		$wc = \App\Models\WatchCallback::FromApiPayload($request->json()->all(), $request->ip());

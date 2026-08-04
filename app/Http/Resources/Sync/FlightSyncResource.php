@@ -4,10 +4,10 @@ namespace App\Http\Resources\Sync;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class FlightSyncResource extends JsonResource
-{
-    public function toArray($request)
-    {
+// =============================================================================
+class FlightSyncResource extends JsonResource {
+    // =========================================================================
+    public function toArray($request) {
         return [
             'id'               => $this->id,
             'airline_icao'     => $this->airline_icao,

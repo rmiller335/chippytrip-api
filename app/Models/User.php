@@ -17,14 +17,12 @@ use NotificationChannels\Pushover\PushoverChannel;
 // =============================================================================
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
-{
+class User extends Authenticatable {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
 	// =========================================================================
-    protected function casts(): array
-    {
+    protected function casts(): array {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',

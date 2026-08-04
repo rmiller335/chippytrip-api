@@ -28,4 +28,12 @@ trait Callback {
 			)
 		);
     }
+
+    // =========================================================================
+    public function toFcm(object $notifiable): array {
+		return [
+			'title' => $this->callback->summary,
+			'body'  => $this->callback->long_description,
+		];
+    }
 }

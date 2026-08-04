@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 // =============================================================================
 return new class extends Migration {
-	// x============================================================================
+	// =========================================================================
     public function up(): void {
         Schema::create('countries', function (Blueprint $tbl) {
             $tbl->id();
@@ -36,7 +36,7 @@ return new class extends Migration {
 		});
     }
 
-	// x============================================================================
+	// =========================================================================
     public function down(): void {
 		Schema::table('airlines', function(Blueprint $tbl) {
 			$tbl->dropForeign('airlines_country_code_foreign');

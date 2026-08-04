@@ -10,8 +10,9 @@ use App\Http\Resources\Sync\AirportSyncResource;
 
 use Illuminate\Http\Request;
 
-class ListenerSyncController extends Controller
-{
+// =============================================================================
+class ListenerSyncController extends Controller {
+	// =========================================================================
 	public function index(Request $request) {
 		$listeners = $request->user()
 			->listeners()
