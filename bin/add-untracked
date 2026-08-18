@@ -1,0 +1,31 @@
+#!/bin/bash
+# Shows git status, then stages (git add) any untracked files.
+# Leaves everything staged for you to review/commit manually.
+# Usage: bin/git-add-untracked
+
+set -e
+
+echo "== git status (before) =="
+git status
+
+UNTRACKED=$(git status --porcelain | grep '^??' | sed 's/^?? //')
+
+if [ -z "$UNTRACKED" ]; then
+    echo
+    echo "== No untracked files. =="
+    exit 0
+fi
+
+echo
+echo "== Untracked files to add =="
+echo "$UNTRACKED"
+
+echo
+echo "== Adding =="
+echo "$UNTRACKED" | while IFS= read -r file; do
+    git add -- "$file"
+done
+
+echo
+echo "== git status (after) =="
+git status

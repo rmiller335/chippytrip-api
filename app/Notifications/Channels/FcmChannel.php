@@ -1,56 +1,59 @@
 <?php
-
 namespace App\Notifications\Channels;
 
 use App\Models\UserChannel;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
-use Kreait\Firebase\Contract\Messaging;
-use Kreait\Firebase\Messaging\CloudMessage;
-use Kreait\Firebase\Messaging\Notification as FcmNotification;
+use Illuminate\Support\Str;
+use Lumi\NativePush\Server\{FcmSender, FcmMessage};
 
 // =============================================================================
 class FcmChannel {
 	// =========================================================================
-	public function __construct(private Messaging $messaging) {}
+    public function __construct(private FcmSender $sender) {}
 
 	// =========================================================================
 	public function send(object $notifiable, Notification $notification): void {
-		$tokens = $notifiable->channels()
+		$channels = $notifiable->channels()
 			->where('channel', self::class)
 			->get()
-			->map(fn(UserChannel $c) => $c->credentials['token'] ?? null)
-			->filter()
+			->filter(fn(UserChannel $c) => !empty($c->credentials['token'] ?? null))
 			->values();
 
-		if($tokens->isEmpty()) {
+		if ($channels->isEmpty()) {
 			return;
 		}
 
-		$data = $notification->toFcm($notifiable);
+		$data = collect($notification->toFcm($notifiable))
+			->reject(fn($v) => is_null($v))
+			->all()
+		;
 
-		$message = CloudMessage::new()
-			->withNotification(FcmNotification::create($data['title'], $data['body']));
+		$data['notification_id'] = (string) Str::uuid();
 
-		try {
-			$report = $this->messaging->sendMulticast($message, $tokens->all());
-		}
-		catch(\Throwable $e) {
-			Log::error("FCM sendMulticast threw: {$e->getMessage()}", [
-				'notifiable_id' => $notifiable->id ?? null,
-			]);
-			return;
-		}
+		foreach ($channels as $channel) {
+			$token = $channel->credentials['token'];
 
-		if($report->hasFailures()) {
-			$deadTokens = array_merge($report->unknownTokens(), $report->invalidTokens());
+			Log::debug('FcmChannel: sending on channel ' . $channel->id);
+			Log::debug(json_encode($data, JSON_PRETTY_PRINT));
 
-			if($deadTokens) {
-				Log::info("FCM: pruning dead tokens", ['tokens' => $deadTokens]);
+			try {
+				$response = $this->sender->send(
+					FcmMessage::make()->to($token)->event('\App\Events\FlightStatusPushed', $data)
+				);
 
-				UserChannel::where('channel', self::class)
-					->whereIn('credentials->token', $deadTokens)
-					->delete();
+				Log::debug('FcmChannel: sent', ['token' => $token, 'response' => $response]);
+			} catch (\RuntimeException $e) {
+				if (preg_match('/FCM send failed \((\d+)\)/', $e->getMessage(), $m) && (int) $m[1] === 404) {
+					Log::info("FCM: pruning dead token", ['token' => $token]);
+					$channel->delete();
+					continue;
+				}
+	
+				Log::error("FCM send threw: {$e->getMessage()}", [
+					'notifiable_id' => $notifiable->id ?? null,
+					'token' => $token,
+				]);
 			}
 		}
 	}

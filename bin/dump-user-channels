@@ -1,0 +1,9 @@
+#!/bin/bash
+# Quick dump of FcmChannel UserChannel rows for a given user (default 14).
+USER_ID="${1:-14}"
+
+cd ~/dev/chippytrip-api
+php artisan tinker --execute="
+    dump(App\Models\UserChannel::where('channel', App\Notifications\Channels\FcmChannel::class)
+        ->where('user_id', $USER_ID)->get(['id','credentials','created_at'])->toArray());
+"

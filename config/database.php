@@ -44,6 +44,16 @@ return [
             'transaction_mode' => 'DEFERRED',
         ],
 
+        'production_ro' => [
+            'driver' => 'mysql',
+            'host' => env('PROD_DB_HOST'),
+            'port' => env('PROD_DB_PORT', 3306),
+            'database' => env('PROD_DB_DATABASE'),
+            'username' => env('PROD_DB_READONLY_USER'),
+            'password' => env('PROD_DB_READONLY_PASSWORD'),
+            'charset' => 'utf8mb4',
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),

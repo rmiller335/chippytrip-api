@@ -10,8 +10,25 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
-class WatchCallbackTest extends TestCase
-{
+// =============================================================================
+class WatchCallbackTest extends TestCase {
+	private static bool $synced = false;
+
+    // =========================================================================
+	protected function setUp(): void {
+		parent::setUp();
+
+		Log::debug('WatchCallbackTest: setUp()');
+
+		if (! self::$synced) {
+			exec(base_path('bin/sync-test-db'), $output, $exitCode);
+			if ($exitCode !== 0) {
+				$this->fail('bin/sync-test-db failed: ' . implode("\n", $output));
+			}
+			self::$synced = true;
+		}
+	}
+
     // =========================================================================
     // Helpers
     // =========================================================================
@@ -149,7 +166,7 @@ class WatchCallbackTest extends TestCase
     {
         Bus::fake();
 
-        $watch = Watch::with('flight')->firstOrFail();
+        $watch = Watch::with('flight')->where('enabled', true)->firstOrFail();
 
         $request  = $this->buildRequest($watch);
         $response = app(WatchCallback::class)->callback($request);
@@ -168,7 +185,10 @@ public function test_invalid_secret_returns_403(): void
 {
     Bus::fake();
 
-    $watch = Watch::with('flight')->firstOrFail();
+    $watch = Watch::with('flight')
+		->where('enabled', true)
+		->firstOrFail()
+	;
 
     $before = \App\Models\WatchCallback::where('alert_id', $watch->subscription_id)->count();
 
@@ -200,7 +220,10 @@ public function test_invalid_secret_returns_403(): void
     {
         Bus::fake();
 
-        $watch = Watch::with('flight')->firstOrFail();
+        $watch = Watch::with('flight')
+			->where('enabled', true)
+			->firstOrFail()
+		;
 
         $payload = $this->buildPayload($watch, ['alert_id' => 'NONEXISTENT-ID']);
 
@@ -228,7 +251,7 @@ public function test_invalid_secret_returns_403(): void
     {
         Bus::fake();
 
-        $watch = Watch::with('flight')->firstOrFail();
+        $watch = Watch::where('enabled', true)->with('flight')->firstOrFail();
 
         // Push scheduled_out one week into the future so the date won't match
         $wrongDate = $watch->flight->departure_date->copy()->addWeek()->toIso8601ZuluString();
@@ -264,7 +287,10 @@ public function test_invalid_secret_returns_403(): void
     {
         Bus::fake();
 
-        $watch = Watch::with(['flight', 'listeners'])->firstOrFail();
+        $watch = Watch::with(['flight', 'listeners'])
+			->where('enabled', true)
+			->firstOrFail()
+		;
 
         $request  = $this->buildRequest($watch);
         $response = app(WatchCallback::class)->callback($request);

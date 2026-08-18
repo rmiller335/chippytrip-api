@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."  # adjust if bin/ isn't directly under project root
+
+ENV_FILE=".env"
+ENV_TESTING_FILE=".env.testing"
+
+if [[ ! -f "$ENV_FILE" ]]; then
+    echo "Missing $ENV_FILE" >&2
+    exit 1
+fi
+
+if [[ ! -f "$ENV_TESTING_FILE" ]]; then
+    echo "Missing $ENV_TESTING_FILE" >&2
+    exit 1
+fi
+
+# Helper: read a single KEY=value from a given env file, stripping quotes
+env_get() {
+    local file="$1" key="$2"
+    grep -E "^${key}=" "$file" | tail -n1 | cut -d '=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'\$//"
+}
+
+# Production (source) — read from .env
+PROD_HOST=$(env_get "$ENV_FILE" "DB_HOST")
+PROD_PORT=$(env_get "$ENV_FILE" "DB_PORT")
+PROD_DB=$(env_get "$ENV_FILE" "DB_DATABASE")
+PROD_USER=$(env_get "$ENV_FILE" "DB_USERNAME")
+PROD_PASS=$(env_get "$ENV_FILE" "DB_PASSWORD")
+
+# Test (destination) — read from .env.testing
+TEST_HOST=$(env_get "$ENV_TESTING_FILE" "DB_HOST")
+TEST_PORT=$(env_get "$ENV_TESTING_FILE" "DB_PORT")
+TEST_DB=$(env_get "$ENV_TESTING_FILE" "DB_DATABASE")
+TEST_USER=$(env_get "$ENV_TESTING_FILE" "DB_USERNAME")
+TEST_PASS=$(env_get "$ENV_TESTING_FILE" "DB_PASSWORD")
+
+: "${PROD_HOST:?DB_HOST missing in $ENV_FILE}"
+: "${PROD_DB:?DB_DATABASE missing in $ENV_FILE}"
+: "${PROD_USER:?DB_USERNAME missing in $ENV_FILE}"
+: "${TEST_HOST:?DB_HOST missing in $ENV_TESTING_FILE}"
+: "${TEST_DB:?DB_DATABASE missing in $ENV_TESTING_FILE}"
+: "${TEST_USER:?DB_USERNAME missing in $ENV_TESTING_FILE}"
+
+echo "Dumping production database ($PROD_DB @ $PROD_HOST)..."
+mysqldump -h "$PROD_HOST" -P "${PROD_PORT:-3306}" -u "$PROD_USER" -p"$PROD_PASS" "$PROD_DB" \
+    --ignore-table="PROD_DB".airlines \
+    --ignore-table="PROD_DB".airports \
+    --ignore-table="PROD_DB".countries \
+    --no-tablespaces \
+    --single-transaction \
+    > /tmp/prod_dump.sql
+
+echo "Restoring into test database ($TEST_DB @ $TEST_HOST)..."
+mysql -h "$TEST_HOST" -P "${TEST_PORT:-3306}" -u "$TEST_USER" -p"$TEST_PASS" \
+    -e "DROP DATABASE IF EXISTS \`$TEST_DB\`; CREATE DATABASE \`$TEST_DB\`;"
+mysql -h "$TEST_HOST" -P "${TEST_PORT:-3306}" -u "$TEST_USER" -p"$TEST_PASS" "$TEST_DB" < /tmp/prod_dump.sql
+
+rm /tmp/prod_dump.sql
+
+echo "Test database refreshed from production."
