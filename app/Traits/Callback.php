@@ -34,17 +34,18 @@ trait Callback {
 		return [
 			'title'				=> $this->callback->summary,
 			'body' 				=> $this->callback->long_description,
+			'alert_id'			=> $this->callback->alert_id,
 
-			'actual_in'         => $this->callback->actual_in,
-			'actual_off'        => $this->callback->actual_off,
-			'actual_on'         => $this->callback->actual_on,
+			'actual_in'         => $this->callback->actual_in?->toISOString(),
+			'actual_off'        => $this->callback->actual_off?->toISOString(),
+			'actual_on'         => $this->callback->actual_on?->toISOString(),
 			'destination_city'  => $this->callback->destination_city,
 			'destination_iata'  => $this->callback->destination_iata,
 			'destination_icao'  => $this->callback->destination_icao,
 			'destination_name'  => $this->callback->destination_name,
-			'estimate_on'       => $this->callback->estimate_on,
-			'estimated_in'      => $this->callback->estimated_in,
-			'estimated_off'     => $this->callback->estimated_off,
+			'estimated_on'      => $this->callback->estimated_on?->toISOString(),
+			'estimated_in'      => $this->callback->estimated_in?->toISOString(),
+			'estimated_off'     => $this->callback->estimated_off?->toISOString(),
 			'event_code'        => $this->callback->event_code,
 			'flight_number'     => $this->callback->flight_number,
 			'ident_iata'        => $this->callback->ident_iata,
@@ -53,9 +54,9 @@ trait Callback {
 			'origin_iata'       => $this->callback->origin_iata,
 			'origin_icao'       => $this->callback->origin_icao,
 			'origin_name'       => $this->callback->origin_name,
-			'scheduled_in'      => $this->callback->scheduled_in,
-			'scheduled_off'     => $this->callback->scheduled_off,
-			'scheduled_on'      => $this->callback->scheduled_on,
+			'scheduled_in'      => $this->callback->scheduled_in?->toISOString(),
+			'scheduled_off'     => $this->callback->scheduled_off?->toISOString(),
+			'scheduled_on'      => $this->callback->scheduled_on?->toISOString(),
 		];
     }
 }
