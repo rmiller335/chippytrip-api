@@ -4,7 +4,6 @@ namespace App\Notifications\Channels;
 use App\Models\UserChannel;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Lumi\NativePush\Server\{FcmSender, FcmMessage};
 
 // =============================================================================
@@ -26,8 +25,6 @@ class FcmChannel {
         $data = collect($notification->toFcm($notifiable))
             ->reject(fn($v) => is_null($v))
             ->all();
-
-        $data['notification_id'] = (string) Str::uuid();
 
         foreach ($channels as $channel) {
             $token = $channel->credentials['token'];

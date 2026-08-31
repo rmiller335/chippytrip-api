@@ -127,6 +127,13 @@ class WatchCallback extends Model {
 	// -------------------------------------------------------------------------
 
 	// =========================================================================
+	protected static function booted(): void {
+		static::creating(function (WatchCallback $callback) {
+			$callback->notification_id ??= (string) Str::uuid();
+		});
+	}
+
+	// =========================================================================
 	// Build a new (unsaved) model instance from an AeroAPI v4 callback payload.
 	public static function fromApiPayload(array $payload, ?string $sourceIp = null): self {
 		$flight = $payload['flight'] ?? [];

@@ -33,20 +33,20 @@ class ListenerSyncController extends Controller {
 			->merge($flights->pluck('destination'))
 			->filter()
 			->unique('icao');
-		$callbacks = $watches->flatMap(fn ($watch) => $watch->callbacks->each(
+		$watch_callbacks = $watches->flatMap(fn ($watch) => $watch->callbacks->each(
 				fn ($callback) => $callback->flight_id = $watch->flight_id
 			))
 			->filter()
 			->unique('id');
 
 		return response()->json([
-			'synced_at' =>	now()->toIso8601String(),
-			'listeners' =>	ListenerSyncResource::collection($listeners),
-			'watches' =>	WatchSyncResource::collection($watches),
-			'callbacks' =>	WatchCallbackSyncResource::collection($callbacks),
-			'flights' =>	FlightSyncResource::collection($flights),
-			'airlines' =>	AirlineSyncResource::collection($airlines),
-			'airports' =>	AirportSyncResource::collection($airports),
+			'synced_at' =>				now()->toIso8601String(),
+			'listeners' =>				ListenerSyncResource::collection($listeners),
+			'watches' =>				WatchSyncResource::collection($watches),
+			'flight_notifications' =>	WatchCallbackSyncResource::collection($watch_callbacks),
+			'flights' =>				FlightSyncResource::collection($flights),
+			'airlines' =>				AirlineSyncResource::collection($airlines),
+			'airports' =>				AirportSyncResource::collection($airports),
 		]);
 	}
 }
