@@ -351,58 +351,6 @@ public function test_invalid_secret_returns_403(): void
     /**
      * Fires a scheduled callback through the REAL pipeline (no Bus::fake(),
      * queue forced to "sync") so SendNotification::handle() actually runs
-     * and $user->notify() actually hits the Pushover API with a live
-     * credential (see user_channels row for user 14).
-     */
-    public function test_scheduled_callback_sends_real_pushover_notification(): void
-    {
-        $originalQueueDefault = config('queue.default');
-        config(['queue.default' => 'sync']);
-
-        try {
-            $watch = Watch::with(['flight.origin', 'flight.destination', 'listeners.user'])
-                ->where('enabled', true)
-                ->firstOrFail();
-
-            $user = $watch->listeners->firstOrFail()->user;
-
-            $payload = $this->buildScheduledPayload($watch);
-
-            $request = Request::create(
-                '/webhook/callback?s=' . $watch->secret,
-                'POST',
-                [],
-                [],
-                [],
-                ['CONTENT_TYPE' => 'application/json'],
-                json_encode($payload)
-            );
-            $request->headers->set('Content-Type', 'application/json');
-
-            $response = app(WatchCallback::class)->callback($request);
-
-            $this->assertEquals(200, $response->getStatusCode());
-
-            $this->assertDatabaseHas('watch_callbacks', [
-                'alert_id' => $watch->subscription_id,
-            ]);
-
-            // The "database" channel runs alongside Pushover in via(), so a
-            // stored notification is a proxy that the real via() loop
-            // completed (i.e. Pushover didn't throw and abort it).
-            $this->assertDatabaseHas('notifications', [
-                'notifiable_id'   => $user->id,
-                'notifiable_type' => get_class($user),
-                'type'            => \App\Notifications\Filed::class,
-            ]);
-        } finally {
-            config(['queue.default' => $originalQueueDefault]);
-        }
-    }
-
-    /**
-     * Fires a scheduled callback through the REAL pipeline (no Bus::fake(),
-     * queue forced to "sync") so SendNotification::handle() actually runs
      * and $user->notify() actually hits the FCM API with a live device
      * token (see user_channels row for the fixture user, channel 'fcm').
      *

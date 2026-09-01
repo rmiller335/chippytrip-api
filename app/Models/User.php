@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use NotificationChannels\Pushover\PushoverChannel;
 
 // =============================================================================
 #[Fillable(['name', 'email', 'password'])]
@@ -44,15 +43,4 @@ class User extends Authenticatable {
 		return $this->hasMany(Listener::class, 'user_id', 'id');
 	}
 
-	// =========================================================================
-	public function routeNotificationForPushover() {
-		$channel = $this->channels->where('channel', pushoverChannel::class)->first();
-
-		if($channel) {
-			return $channel->credentials['key'];
-		}
-		else {
-			return null;
-		}
-	}
 }

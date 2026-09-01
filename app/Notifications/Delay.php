@@ -9,8 +9,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
-use NotificationChannels\Pushover\PushoverChannel;
-use NotificationChannels\Pushover\PushoverMessage;
 
 // =============================================================================
 class Delay extends Notification {
@@ -25,14 +23,6 @@ class Delay extends Notification {
         return (new MailMessage)
             ->subject($this->callback->summary)
             ->line($this->callback->long_description)
-        ;
-    }
-
-    // =========================================================================
-    public function toPushover($notifiable) {
-        return PushoverMessage::create()
-            ->title($this->callback->summary)
-            ->content($this->callback->long_description)
         ;
     }
 }
