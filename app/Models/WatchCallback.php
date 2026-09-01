@@ -246,7 +246,7 @@ class WatchCallback extends Model {
 	}
 
 	// -------------------------------------------------------------------------
-	protected function resolveEventDateTime(): ?\Carbon\Carbon {
+	public function resolveEventDateTime(): ?\Carbon\Carbon {
 		$fields = self::EVENT_DATETIME_FIELDS[
 			strtolower($this->event_code)] ?? ['scheduled_out'
 		];

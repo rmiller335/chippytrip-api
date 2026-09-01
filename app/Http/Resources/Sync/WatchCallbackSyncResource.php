@@ -14,6 +14,7 @@ class WatchCallbackSyncResource extends JsonResource {
 			'flight_id'			=> $this->flight_id,
 			'alert_id'			=> $this->alert_id,
 			'event_code'		=> $this->event_code,
+			'event_dt'			=> ($this->event_dt ?: $this->created_at)->toIso8601String(),
 			'title'				=> $this->title,
 			'body'				=> $this->body,
 			'summary'			=> $this->summary,
