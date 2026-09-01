@@ -54,7 +54,9 @@ class NotificationsIndex implements ShouldQueue {
 						$watch = Watch::find($data->watch_id);
 						$notification = Notification::find($rec->id);
 
-						$watch->notifications()->attach($notification->id);
+						if($watch && $notification) {
+							$watch->notifications()->attach($notification->id);
+						}
 					}
 				}
 			})
