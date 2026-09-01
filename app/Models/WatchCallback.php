@@ -30,6 +30,21 @@ use Illuminate\Support\Str;
 class WatchCallback extends Model {
 	protected $table = 'watch_callbacks';
 
+    // === Preference order per event type: first non-null attribute wins ===
+    private const EVENT_DATETIME_FIELDS = [
+        'out'       => ['actual_out'],
+        'off'       => ['actual_off'],
+        'on'        => ['actual_on'],
+        'in'        => ['actual_in'],
+
+        'departure' => ['actual_out', 'estimated_out', 'scheduled_out'],
+        'arrival'   => ['actual_in', 'estimated_in', 'scheduled_in'],
+        'diverted'  => ['actual_on', 'estimated_in', 'scheduled_in'],
+
+        'cancelled' => ['scheduled_out'],
+        'filed'     => ['scheduled_out'],
+    ];
+
 	protected $fillable = [
 		'alert_id',
 		'event_code',
@@ -130,6 +145,7 @@ class WatchCallback extends Model {
 	protected static function booted(): void {
 		static::creating(function (WatchCallback $callback) {
 			$callback->notification_id ??= (string) Str::uuid();
+			$callback->event_dt = $callback->resolveEventDateTime();
 		});
 	}
 
@@ -227,6 +243,21 @@ class WatchCallback extends Model {
 		$class = 'App\\Notifications\\' . $type;
 
 		return new $class($this);
+	}
+
+	// -------------------------------------------------------------------------
+	protected function resolveEventDateTime(): ?\Carbon\Carbon {
+		$fields = self::EVENT_DATETIME_FIELDS[
+			strtolower($this->event_code)] ?? ['scheduled_out'
+		];
+
+		foreach ($fields as $field) {
+			if ($this->{$field} !== null) {
+				return $this->{$field};
+			}
+		}
+
+		return null;
 	}
 
 	// -------------------------------------------------------------------------
