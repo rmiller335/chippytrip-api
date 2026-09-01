@@ -50,7 +50,8 @@ class WatchCallbackSyncResource extends JsonResource {
 			'estimated_out'		=> $this->estimated_out,
 			'actual_out'		=> $this->actual_out,
 
-			'created_at'		=> $this->created_at,
+			'created_at'		=> $this->created_at->toIso8601String(),
+			'updated_at'		=> $this->updated_at->toIso8601String(),
 		];
 	}
 }
