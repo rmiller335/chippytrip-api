@@ -1,0 +1,31 @@
+From: ITA Airways <noreply@ita-airways.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: Conferma prenotazione =?utf-8?b?4oCT?= R4T9XZ
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <ita-it.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+ITA Airways
+Conferma della prenotazione
+
+Codice di prenotazione: R4T9XZ
+Passeggero: ROBERT TESTER
+
+Venerdì 3 settembre 2027
+Volo AZ 611
+New York JFK (JFK)
+Partenza 21:30
+Roma Fiumicino (FCO)
+Arrivo 12:05 sabato 4 settembre
+Classe: Economy
+
+Sabato 4 settembre 2027
+Volo AZ 1463
+Roma Fiumicino (FCO)
+Partenza 15:20
+Venezia Marco Polo (VCE)
+Arrivo 16:30
+Classe: Economy

@@ -14,6 +14,10 @@ return [
     |
     */
 
+	'openai' => [
+		'flight_model' => env('OPENAI_FLIGHT_MODEL', 'gpt-4o-mini'),
+		'key' => env('OPENAI_API_KEY'),
+	],
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

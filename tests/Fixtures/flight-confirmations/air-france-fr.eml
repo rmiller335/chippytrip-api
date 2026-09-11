@@ -1,0 +1,31 @@
+From: Air France <mail@infos-airfrance.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: Votre confirmation de =?utf-8?q?r=C3=A9servation_=E2=80=93?= AF7KQ9
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <air-france-fr.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+AIR FRANCE
+Confirmation de votre voyage
+
+Référence de réservation : AF7KQ9
+Passager : ROBERT TESTER
+
+Mardi 10 août 2027
+Vol AF 009
+New York John F. Kennedy (JFK)
+Départ 23:25
+Paris Charles de Gaulle (CDG)
+Arrivée 12:55 le mercredi 11 août
+Cabine : Economy
+
+Mercredi 11 août 2027
+Vol AF 1304
+Paris Charles de Gaulle (CDG)
+Départ 15:10
+Rome Fiumicino (FCO)
+Arrivée 17:15
+Cabine : Economy

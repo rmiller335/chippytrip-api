@@ -9,11 +9,12 @@ class AirportSyncResource extends JsonResource {
     // =========================================================================
     public function toArray($request) {
         return [
-            'icao' =>		$this->icao,
-            'iata' =>		$this->iata,
-            'name' =>		$this->name,
-            'city' =>		$this->city,
-			'timezone' =>	$this->timezone,
+            'icao' =>			$this->icao,
+            'iata' =>			$this->iata,
+            'name' =>			$this->name,
+			'display_name' =>	$this->display_name,
+            'city' =>			$this->city,
+			'timezone' =>		$this->timezone,
         ];
     }
 }

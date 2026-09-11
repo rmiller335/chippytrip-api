@@ -1,0 +1,33 @@
+From: Lufthansa <online@booking.lufthansa.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: Ihre =?utf-8?q?Buchungsbest=C3=A4tigung_=E2=80=93?= P8LMQ2
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <lufthansa-de.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+Lufthansa
+Ihre Buchungsbestätigung
+
+Buchungscode: P8LMQ2
+Passagier: ROBERT TESTER
+
+Hinflug
+Samstag, 3. Juli 2027
+Flug LH 413
+New York (JFK)
+Abflug 16:10
+Frankfurt (FRA)
+Ankunft 05:45 am nächsten Tag
+Reiseklasse: Economy
+
+Anschlussflug
+Sonntag, 4. Juli 2027
+Flug LH 230
+Frankfurt (FRA)
+Abflug 08:35
+Rom Fiumicino (FCO)
+Ankunft 10:25
+Reiseklasse: Economy

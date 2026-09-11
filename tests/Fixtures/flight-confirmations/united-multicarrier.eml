@@ -1,0 +1,42 @@
+From: United Airlines <unitedairlines@united.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: eTicket Itinerary and Receipt for Confirmation L8R3WX
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <united-multicarrier.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+UNITED
+eTicket Itinerary and Receipt
+Confirmation: L8R3WX
+Traveler: ROBERT TESTER
+
+UA 972 — United Airlines
+Chicago O'Hare (ORD) to Brussels (BRU)
+Monday, April 12, 2027
+5:55 PM - 9:15 AM +1
+
+UA 9981 — marketed by United Airlines
+Operated by Brussels Airlines
+Brussels (BRU) to Rome Fiumicino (FCO)
+Tuesday, April 13, 2027
+11:25 AM - 1:30 PM
+
+UA 7204 — marketed by United Airlines
+Operated by Ethiopian Airlines
+Rome Fiumicino (FCO) to Addis Ababa (ADD)
+Friday, April 23, 2027
+11:40 PM - 6:55 AM +1
+
+ET 500 — Ethiopian Airlines
+Addis Ababa (ADD) to Washington Dulles (IAD)
+Saturday, April 24, 2027
+10:15 PM - 8:25 AM +1
+
+UA 4176 — United Express
+Operated by CommutAir
+Washington Dulles (IAD) to Rochester (ROC)
+Sunday, April 25, 2027
+12:45 PM - 2:03 PM

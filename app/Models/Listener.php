@@ -13,6 +13,7 @@ class Listener extends Model implements Auditable {
 	protected $table = 'listeners';
 
 	protected $fillable = [
+		'user_id',
 		'travelers',
 		'watch_id',
 	];

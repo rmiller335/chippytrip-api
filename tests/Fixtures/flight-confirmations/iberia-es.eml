@@ -1,0 +1,31 @@
+From: Iberia <info@iberia.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: =?utf-8?q?Confirmaci=C3=B3n_de_tu_reserva_=E2=80=93?= M3V7LP
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <iberia-es.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+IBERIA
+Confirmación de reserva
+
+Localizador: M3V7LP
+Pasajero: ROBERT TESTER
+
+Domingo, 10 de octubre de 2027
+Vuelo IB 6250
+Nueva York JFK (JFK)
+Salida 20:45
+Madrid Barajas (MAD)
+Llegada 10:10 lunes, 11 de octubre
+Cabina: Turista
+
+Lunes, 11 de octubre de 2027
+Vuelo IB 3170
+Madrid Barajas (MAD)
+Salida 13:05
+Londres Heathrow (LHR)
+Llegada 14:35
+Cabina: Turista

@@ -1,0 +1,208 @@
+{
+  "note": "All fixtures are synthetic. They emulate common airline confirmation wording/layouts and contain no real reservation data.",
+  "cases": [
+    {
+      "file": "delta-simple.eml",
+      "confirmation_number": "Q7M2LK",
+      "flights": [
+        {
+          "flight_number": "2047",
+          "carrier": "DL",
+          "from": "ROC",
+          "to": "ATL"
+        },
+        {
+          "flight_number": "174",
+          "carrier": "DL",
+          "from": "ATL",
+          "to": "MXP"
+        }
+      ]
+    },
+    {
+      "file": "delta-connection.eml",
+      "confirmation_number": "X4N8PV",
+      "flights": [
+        {
+          "flight_number": "4812",
+          "carrier": "DL",
+          "from": "ROC",
+          "to": "LGA"
+        },
+        {
+          "flight_number": "132",
+          "carrier": "DL",
+          "from": "JFK",
+          "to": "ATH"
+        }
+      ],
+      "operating": {
+        "index": 0,
+        "name_contains": "Endeavor",
+        "iata": "9E"
+      }
+    },
+    {
+      "file": "united-multicarrier.eml",
+      "confirmation_number": "L8R3WX",
+      "flights": [
+        {
+          "flight_number": "972",
+          "carrier": "UA",
+          "from": "ORD",
+          "to": "BRU"
+        },
+        {
+          "flight_number": "9981",
+          "carrier": "UA",
+          "from": "BRU",
+          "to": "FCO"
+        },
+        {
+          "flight_number": "7204",
+          "carrier": "UA",
+          "from": "FCO",
+          "to": "ADD"
+        },
+        {
+          "flight_number": "500",
+          "carrier": "ET",
+          "from": "ADD",
+          "to": "IAD"
+        },
+        {
+          "flight_number": "4176",
+          "carrier": "UA",
+          "from": "IAD",
+          "to": "ROC"
+        }
+      ]
+    },
+    {
+      "file": "southwest.eml",
+      "confirmation_number": "H7K3QZ",
+      "flights": [
+        {
+          "flight_number": "1834",
+          "carrier": "WN",
+          "from": "ROC",
+          "to": "BWI"
+        },
+        {
+          "flight_number": "227",
+          "carrier": "WN",
+          "from": "BWI",
+          "to": "ROC"
+        }
+      ]
+    },
+    {
+      "file": "american.eml",
+      "confirmation_number": "J6QXMP",
+      "flights": [
+        {
+          "flight_number": "1978",
+          "carrier": "AA",
+          "from": "ROC",
+          "to": "CLT"
+        },
+        {
+          "flight_number": "748",
+          "carrier": "AA",
+          "from": "CLT",
+          "to": "MAD"
+        }
+      ]
+    },
+    {
+      "file": "lufthansa-de.eml",
+      "confirmation_number": "P8LMQ2",
+      "flights": [
+        {
+          "flight_number": "413",
+          "carrier": "LH",
+          "from": "JFK",
+          "to": "FRA"
+        },
+        {
+          "flight_number": "230",
+          "carrier": "LH",
+          "from": "FRA",
+          "to": "FCO"
+        }
+      ]
+    },
+    {
+      "file": "air-france-fr.eml",
+      "confirmation_number": "AF7KQ9",
+      "flights": [
+        {
+          "flight_number": "009",
+          "carrier": "AF",
+          "from": "JFK",
+          "to": "CDG"
+        },
+        {
+          "flight_number": "1304",
+          "carrier": "AF",
+          "from": "CDG",
+          "to": "FCO"
+        }
+      ]
+    },
+    {
+      "file": "ita-it.eml",
+      "confirmation_number": "R4T9XZ",
+      "flights": [
+        {
+          "flight_number": "611",
+          "carrier": "AZ",
+          "from": "JFK",
+          "to": "FCO"
+        },
+        {
+          "flight_number": "1463",
+          "carrier": "AZ",
+          "from": "FCO",
+          "to": "VCE"
+        }
+      ]
+    },
+    {
+      "file": "iberia-es.eml",
+      "confirmation_number": "M3V7LP",
+      "flights": [
+        {
+          "flight_number": "6250",
+          "carrier": "IB",
+          "from": "JFK",
+          "to": "MAD"
+        },
+        {
+          "flight_number": "3170",
+          "carrier": "IB",
+          "from": "MAD",
+          "to": "LHR"
+        }
+      ]
+    },
+    {
+      "file": "ana-ja.eml",
+      "confirmation_number": "N7K2QP",
+      "flights": [
+        {
+          "flight_number": "109",
+          "carrier": "NH",
+          "from": "JFK",
+          "to": "HND"
+        },
+        {
+          "flight_number": "33",
+          "carrier": "NH",
+          "from": "HND",
+          "to": "ITM"
+        }
+      ]
+    }
+  ]
+}

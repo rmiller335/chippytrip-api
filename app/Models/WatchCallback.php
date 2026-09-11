@@ -126,6 +126,7 @@ class WatchCallback extends Model {
 		'scheduled_in'  => 'datetime',
 		'estimated_in'  => 'datetime',
 		'actual_in'     => 'datetime',
+		'event_dt'      => 'datetime',
 
 		// Booleans
 		'position_only' => 'boolean',

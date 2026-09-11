@@ -1,0 +1,31 @@
+From: Southwest Airlines <southwestairlines@ifly.southwest.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: You're going to Baltimore/Washington on 05/14 (H7K3QZ)!
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <southwest.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Southwest Airlines
+You're going to Baltimore/Washington on 05/14 (H7K3QZ)!
+
+ROBERT TESTER
+Confirmation # H7K3QZ
+
+OUTBOUND
+Friday, May 14, 2027
+WN 1834
+Rochester, NY - ROC
+Depart 8:20 AM
+Baltimore/Washington, MD - BWI
+Arrive 9:35 AM
+
+RETURN
+Monday, May 17, 2027
+WN 227
+Baltimore/Washington, MD - BWI
+Depart 6:40 PM
+Rochester, NY - ROC
+Arrive 7:55 PM

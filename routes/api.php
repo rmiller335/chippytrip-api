@@ -18,6 +18,10 @@ Route::post('/watch-callback', [
 	App\Http\Controllers\WatchCallback::class, 'callback'
 ]);
 
+Route::post('/postmark/inbound', [
+	App\Http\Controllers\PostmarkInboundController::class, 'handle']
+);
+
 // Sync with mobile app.
 Route::middleware('auth:sanctum')->get('/sync/listeners', [
 	App\Http\Controllers\ListenerSyncController::class, 'index'

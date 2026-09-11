@@ -21,6 +21,9 @@ class AddFlightDetails implements ShouldQueue {
     public function handle(FlightAwareSvc $fa): void {
 		$info = $fa->flightSchedule($this->flight);
 
+		Log::debug("FlightAwareSvc::flightSchedule() returned:");
+		Log::debug(json_encode($info, JSON_PRETTY_PRINT));
+
 		if(null != $info) {
 			$this->flight->departure_dt =	new Carbon($info->scheduled_out);
 			$this->flight->arrival_dt =		new Carbon($info->scheduled_in);

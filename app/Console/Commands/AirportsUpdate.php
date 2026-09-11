@@ -12,10 +12,11 @@ use Illuminate\Support\Facades\Storage;
 
 // =============================================================================
 class AirportsUpdate extends Command {
-    protected $signature = 'airports:update';
-    protected $description = 'Update airports table from ourairports';
+	protected $signature = 'airports:update {--force-update}';
+	protected $description = 'Update airports table from ourairports';
 
 	protected $localFile;
+	protected $multiAirportNames = [];
 
 	// =========================================================================
 	protected function download() {
@@ -39,9 +40,13 @@ class AirportsUpdate extends Command {
 	}
 
 	// =========================================================================
-    public function handle(TimezoneSvc $tzsvc) {
+	public function handle(TimezoneSvc $tzsvc) {
 		$this->download();
+		$this->loadMultiAirportNames();
+
 		$ap = fopen($this->localFile, 'r');
+
+		$force = $this->option('force-update');
 
 		if($ap) {
 			$recNo = 0;
@@ -50,15 +55,22 @@ class AirportsUpdate extends Command {
 				if(0 < $recNo++ && '' != $row[16]) {
 					$airport = Airport::where('icao', $row[16])->first();
 					$country = Country::where('iso2', $row[9])->first();
+					$iata = $row[17];
+
+					// If the airport is in the multi-airport list, use that name,
+					// otherwise use the city name if it exists, otherwise use the airport name.
+					$displayName =
+						$this->multiAirportNames[$iata]
+							?? (strlen(trim($row[13])) ? $row[13] : $row[3]);
 
 					if(null != $country && null != $airport) {
-
 						$updated = new Carbon($row[23]);
 
-						if($updated->greaterThan($airport->updated_at)) {
+						if($force || $updated->greaterThan($airport->updated_at)) {
 							$airport->update([
 								'iata' =>			$row[17],
 								'name' =>			$row[3],
+								'display_name' =>	$displayName,
 								'city' =>			$row[13],
 								'state' =>			$row[12],
 								'longitude' =>		$row[5],
@@ -78,6 +90,7 @@ class AirportsUpdate extends Command {
 							'icao' =>			$row[16],
 							'iata' =>			$row[17],
 							'name' =>			$row[3],
+							'display_name' =>	$displayName,
 							'elevation' =>		(0 == strlen($row[6])) ? null : $row[6],
 							'city' =>			$row[13],
 							'state' =>			$row[12],
@@ -97,7 +110,33 @@ class AirportsUpdate extends Command {
 		}
 
 		fclose($ap);
-    }
+	}
+
+	// =========================================================================
+	protected function loadMultiAirportNames(): void {
+		$url = 'https://raw.githubusercontent.com/mborsetti/airportsdata/main/airportsdata/iata_macs.csv';
+
+		$stream = $this->openUrl($url);
+
+		if(null == $stream) {
+			$this->error("Can't open " . $url);
+			exit(-1);
+		}
+
+		$headers = fgetcsv($stream);
+
+		while($row = fgetcsv($stream)) {
+			$data = array_combine($headers, $row);
+
+			if(!empty($data['Airport Code']) && !empty($data['Airport Name'])) {
+				$this->multiAirportNames[
+					strtoupper($data['Airport Code'])
+				] = $data['Airport Name'];
+			}
+		}
+
+		fclose($stream);
+	}
 
 	// =========================================================================
 	protected function openUrl($url) {

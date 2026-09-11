@@ -1,0 +1,31 @@
+From: American Airlines <no-reply@info.email.aa.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: Your trip confirmation =?utf-8?b?4oCT?= J6QXMP
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <american.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+American Airlines
+Trip confirmation
+
+Passenger: ROBERT TESTER
+Record locator / confirmation code: J6QXMP
+
+Flight AA 1978
+Saturday, June 5, 2027
+Rochester (ROC) 6:30 AM
+Charlotte (CLT) 8:27 AM
+Main Cabin
+Booking code: N
+Seat: 18F
+
+Flight AA 748
+Saturday, June 5, 2027
+Charlotte (CLT) 4:40 PM
+Madrid (MAD) 6:55 AM Sunday, June 6
+Premium Economy
+Booking code: W
+Seat: 10A

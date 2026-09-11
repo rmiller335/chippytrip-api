@@ -8,6 +8,7 @@ use App\Http\Resources\Sync\WatchCallbackSyncResource;
 use App\Http\Resources\Sync\FlightSyncResource;
 use App\Http\Resources\Sync\AirlineSyncResource;
 use App\Http\Resources\Sync\AirportSyncResource;
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Http\Request;
 
@@ -17,7 +18,6 @@ class ListenerSyncController extends Controller {
 	public function index(Request $request) {
 		$listeners = $request->user()
 			->listeners()
-			->whereHas('watch', fn ($q) => $q->where('enabled', true))
 			->with([
 				'watch.flight.airline',
 				'watch.flight.origin',
@@ -38,6 +38,25 @@ class ListenerSyncController extends Controller {
 			))
 			->filter()
 			->unique('id');
+
+		Log::debug("ListenerSyncController::index() - returning "
+			. $listeners->count() . " listeners, "
+			. $watches->count() . " watches, "
+			. $watch_callbacks->count() . " watch callbacks, "
+			. $flights->count() . " flights, "
+			. $airlines->count() . " airlines, and "
+			. $airports->count() . " airports")
+		;
+
+		Log::debug(json_encode([
+			'synced_at' =>				now()->toIso8601String(),
+			'listeners' =>				ListenerSyncResource::collection($listeners),
+			'watches' =>				WatchSyncResource::collection($watches),
+			'flight_notifications' =>	WatchCallbackSyncResource::collection($watch_callbacks),
+			'flights' =>				FlightSyncResource::collection($flights),
+			'airlines' =>				AirlineSyncResource::collection($airlines),
+			'airports' =>				AirportSyncResource::collection($airports),
+		], JSON_PRETTY_PRINT));
 
 		return response()->json([
 			'synced_at' =>				now()->toIso8601String(),

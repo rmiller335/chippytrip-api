@@ -1,0 +1,31 @@
+From: ANA <info@ana.co.jp>
+To: Robert Tester <robert.tester@example.test>
+Subject: =?utf-8?b?44GU5LqI57SE56K66KqNIOKAkw==?= N7K2QP
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <ana-ja.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+ANA 全日空
+ご予約確認
+
+予約番号：N7K2QP
+ご搭乗者：ROBERT TESTER
+
+2027年11月6日（土）
+NH 109便
+ニューヨーク（JFK）
+出発 11:05
+東京 羽田（HND）
+到着 14:15 翌日
+エコノミークラス
+
+2027年11月8日（月）
+NH 33便
+東京 羽田（HND）
+出発 16:00
+大阪 伊丹（ITM）
+到着 17:10
+エコノミークラス

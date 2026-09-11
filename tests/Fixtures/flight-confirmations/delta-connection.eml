@@ -1,0 +1,31 @@
+From: Delta Air Lines <delta@t.delta.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: Your Flight Receipt
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <delta-connection.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+DELTA AIR LINES
+Your Flight Receipt
+
+Passenger: ROBERT TESTER
+Confirmation Number: X4N8PV
+
+Thursday, March 11, 2027
+DL 4812
+Rochester, NY (ROC) 6:05 AM
+New York-LaGuardia, NY (LGA) 7:28 AM
+Main Cabin (V)
+Seat 12C
+
+*DL4812 is operated by Endeavor Air DBA Delta Connection
+
+Thursday, March 11, 2027
+DL 132
+New York-JFK, NY (JFK) 5:10 PM
+Athens, Greece (ATH) 9:45 AM Friday, March 12
+Main Cabin (M)
+Seat 31A

@@ -1,0 +1,29 @@
+From: Delta Air Lines <delta@t.delta.com>
+To: Robert Tester <robert.tester@example.test>
+Subject: Your Flight Receipt
+Date: Fri, 01 Jan 2027 12:00:00 +0000
+Message-ID: <delta-simple.eml@fixture.example.test>
+X-Test-Fixture: Synthetic airline confirmation for automated testing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+DELTA AIR LINES
+Your Flight Receipt
+
+Passenger: ROBERT TESTER
+Confirmation Number: Q7M2LK
+
+Friday, February 5, 2027
+Delta Flight 2047
+Rochester, NY (ROC) 7:10 AM
+Atlanta, GA (ATL) 9:34 AM
+Main Cabin (T)
+Seat 14A
+
+Friday, February 5, 2027
+Delta Flight 174
+Atlanta, GA (ATL) 4:55 PM
+Milan Malpensa, Italy (MXP) 7:45 AM Saturday, February 6
+Delta One (Z)
+Seat 3D
