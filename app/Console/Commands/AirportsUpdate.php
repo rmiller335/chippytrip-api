@@ -67,6 +67,8 @@ class AirportsUpdate extends Command {
 						$updated = new Carbon($row[23]);
 
 						if($force || $updated->greaterThan($airport->updated_at)) {
+							Log::debug("Updating airport $row[3]");
+
 							$airport->update([
 								'iata' =>			$row[17],
 								'name' =>			$row[3],

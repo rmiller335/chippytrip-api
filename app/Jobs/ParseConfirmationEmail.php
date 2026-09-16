@@ -3,13 +3,10 @@
 namespace App\Jobs;
 
 use App\Data\FlightConfirmationData;
-use App\Jobs\AddFlightDetails;
-use App\Services\FlightAwareSvc;
+use App\Services\FlightWatchSvc;
 use App\Models\Flight;
-use App\Models\FlightListener;
 use App\Models\InboundEmail;
 use App\Services\OpenAIFlightConfirmationExtractor;
-use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -28,7 +25,7 @@ class ParseConfirmationEmail implements ShouldQueue {
 	// =========================================================================
 	public function handle(
 		OpenAIFlightConfirmationExtractor $extractor,
-		FlightAwareSvc $fa
+		FlightWatchSvc $flightWatchSvc
 	): void {
 		$email = InboundEmail::with('user')
 			->findOrFail($this->inboundEmailId);
@@ -46,17 +43,15 @@ class ParseConfirmationEmail implements ShouldQueue {
 
 			foreach ($confirmation->flights as $flight) {
 				$flightRec = $this->addFlight(
-					$email,
-					$confirmation,
 					$flight,
-					$fa
+					$flightWatchSvc
 				);
 
 				if(null != $flightRec) {
-					$this->addListener(
-						$email,
-						$confirmation,
-						$flightRec
+					$flightWatchSvc->addListener(
+						$flightRec,
+						$email->user,
+						$this->travelerNames($confirmation)
 					);
 
 					Log::debug("Adding flight {$flightRec->flight} to email {$email->id} related records.");
@@ -143,85 +138,26 @@ class ParseConfirmationEmail implements ShouldQueue {
 
 	// =========================================================================
 	private function addFlight(
-		InboundEmail $email,
-		FlightConfirmationData $confirmation,
 		array $flight,
-		FlightAwareSvc $fa
+		FlightWatchSvc $flightWatchSvc
 	): ?Flight {
 		$flightNo = $flight['marketing_carrier']['iata'] . $flight['flight_number'];
 
-		$flightRec = Flight::where('flight', $flightNo)
-			->where('origin_icao', $flight['departure_airport']['icao'])
-			->where('destination_icao', $flight['arrival_airport']['icao'])
-			->where('departure_date', $flight['date'])
-			->first()
-		;
-
-		if(null == $flightRec) {
-			$flightRec = Flight::make([
-				'airline_icao' =>		Flight::icaoFromFlightNum($flightNo),
-				'departure_date' =>		$flight['date'],
-				'departure_dt' =>		$flight['departure_local'],
-				'destination_icao' =>	$flight['arrival_airport']['icao'],
-				'flight_no' =>			$flight['flight_number'],
-				'flight' =>				$flightNo,
-				'origin_icao' =>		$flight['departure_airport']['icao'],
-			]);
-
-			$info = $fa->flightSchedule($flightRec);
-
-			Log::debug("FlightAwareSvc::flightSchedule() returned:");
-			Log::debug(json_encode($info, JSON_PRETTY_PRINT));
-
-			if(null != $info) {
-				$flightRec->departure_dt =		new Carbon($info->scheduled_out);
-				$flightRec->arrival_dt =		new Carbon($info->scheduled_in);
-				$flightRec->equipment =			$info->aircraft_type;
-				$flightRec->meal_service =		$info->meal_service;
-				$flightRec->first_seats =		$info->seats_cabin_first;
-				$flightRec->business_seats =	$info->seats_cabin_business;
-				$flightRec->coach_seats =		$info->seats_cabin_coach;
-
-				$flightRec->save();
-
-				return $flightRec;
-			}
-		}
-
-		return null;
+		return $flightWatchSvc->findOrCreateFlight(
+			$flightNo,
+			$flight['departure_airport']['icao'],
+			$flight['arrival_airport']['icao'],
+			$flight['date'],
+			$flight['departure_local']
+		);
 	}
 
 	// =========================================================================
-	private function addListener(
-		InboundEmail $email,
-		FlightConfirmationData $confirmation,
-		Flight $flightRec
-	): void {
-		$watchRec = $flightRec->watch;
-
-		if(null == $watchRec) {
-			$watchRec = $flightRec->watch()->create([
-				'enabled' =>	false,
-			]);
-		}
-
-		if(0 == $watchRec->listeners->count()) {
-			$names = collect($confirmation->passengers)
-				->pluck('name')
-				->filter()
-				->implode(', ')
-			;
-
-			$watchRec->listeners()->updateOrCreate([
-					'user_id' =>	$email->user->id,
-				], [
-					'travelers' =>	$names,
-				]
-			);
-		}
-
-		if($watchRec->watchable()) {
-			EnableWatch::dispatch($watchRec);
-		}
+	private function travelerNames(FlightConfirmationData $confirmation): string {
+		return collect($confirmation->passengers)
+			->pluck('name')
+			->filter()
+			->implode(', ')
+		;
 	}
 }

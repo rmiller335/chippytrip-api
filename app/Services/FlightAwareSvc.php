@@ -66,10 +66,93 @@ class FlightAwareSvc {
 		])
 		->get($this->url . '/flights/' . $ident);
 
+		if (! $resp->successful()) {
+			return null;
+		}
+
 		$r = arrayToObject($resp->json());
-		$r->flights = collect($r->flights);
+		$r->flights = collect($r->flights ?? []);
 
 		return $r;
+	}
+
+	// =========================================================================
+	public function scheduleForIdent(string $ident, Carbon $date): array {
+		$start = $date->copy()->startOfDay();
+		$end = $date->copy()->endOfDay();
+
+		$url = implode('/', [
+			$this->url,
+			'schedules',
+			$start->toIso8601ZuluString(),
+			$end->toIso8601ZuluString()
+		]);
+
+		// ICAO idents have a 3-letter airline prefix; IATA idents have a
+		// 2-character prefix that may include a digit (e.g. B6, 9E, U2).
+		// A letter in the 3rd position means ICAO — otherwise assume IATA.
+		$prefixLength = (strlen($ident) > 2 && ctype_alpha($ident[2])) ? 3 : 2;
+		$flightNumber = (int) substr($ident, $prefixLength) ?: null;
+
+		$resp = Http::withHeaders([
+			'x-apikey' =>	$this->key,
+		])
+		->withQueryParameters(array_filter([
+			'flight_number' =>	$flightNumber,
+		]))
+		->get($url);
+
+		if(! $resp->successful()) {
+			return [];
+		}
+
+		$data = $resp->json();
+		$matches = [];
+
+		// A flight number can legitimately appear more than once on the
+		// same day — e.g. a same-day turn like DL5240 DTW->ROC and then
+		// ROC->DTW. Collect every match rather than just the first.
+		foreach($data['scheduled'] ?? [] as $entry) {
+			$identIata = strtoupper($entry['ident_iata'] ?? '');
+			$identIcao = strtoupper($entry['ident_icao'] ?? '');
+
+			if($identIata === $ident || $identIcao === $ident) {
+				$matches[] = arrayToObject($entry);
+			}
+		}
+
+		return $matches;
+	}
+
+	// =========================================================================
+	public function scheduleByRoute(Carbon $date, string $origin, string $destination, ?string $airline = null): array {
+		$start = $date->copy()->startOfDay();
+		$end = $date->copy()->endOfDay();
+
+		$url = implode('/', [
+			$this->url,
+			'schedules',
+			$start->toIso8601ZuluString(),
+			$end->toIso8601ZuluString()
+		]);
+
+		$resp = Http::withHeaders([
+			'x-apikey' =>	$this->key,
+		])
+		->withQueryParameters(array_filter([
+			'origin' =>			$origin,
+			'destination' =>	$destination,
+			'airline' =>		$airline,
+		]))
+		->get($url);
+
+		if(! $resp->successful()) {
+			return [];
+		}
+
+		$data = $resp->json();
+
+		return array_map(fn($entry) => arrayToObject($entry), $data['scheduled'] ?? []);
 	}
 
 	// =========================================================================

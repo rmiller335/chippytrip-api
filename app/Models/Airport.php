@@ -145,6 +145,19 @@ class Airport extends Model implements Auditable {
 	}
 
 	// =========================================================================
+	public static function getAirportName(string $icao, string $iata): string {
+		$airport = Airport::where('icao', $icao)
+			->orWhere('iata', $iata)
+			->first();
+
+		if ($airport) {
+			return $airport->name;
+		}
+
+		return '';
+	}
+
+	// =========================================================================
 	public static function icaoForIata(string $iata) {
 		$ap = Airport::where('iata', $iata)->first();
 

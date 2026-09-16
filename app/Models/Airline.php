@@ -44,6 +44,27 @@ class Airline extends Model {
 	}
 
 	// =========================================================================
+	static public function getAirlineName(?string $icao, ?string $iata): ?string {
+		if ($icao) {
+			$airline = static::where('icao', strtoupper($icao))->first();
+
+			if ($airline) {
+				return $airline->name;
+			}
+		}
+
+		if ($iata) {
+			$airline = static::where('iata', strtoupper($iata))->first();
+
+			if ($airline) {
+				return $airline->name;
+			}
+		}
+
+		return null;
+	}
+
+	// =========================================================================
 	public function hasType(string $type): bool {
 		Log::debug(json_encode($this->types, JSON_PRETTY_PRINT));
 

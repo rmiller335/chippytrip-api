@@ -31,3 +31,27 @@ Route::middleware('auth:sanctum')->get('/sync/listeners', [
 Route::middleware('auth:sanctum')->post('/fcm-token', [
 	App\Http\Controllers\FcmTokenController::class, 'store'
 ]);
+
+// Validate a flight number + date, or search by route — used by the
+// mobile app's "Add flight" modal.
+Route::middleware('auth:sanctum')->post('/flights/validate', [
+	App\Http\Controllers\FlightSearchController::class, 'checkFlight'
+]);
+
+Route::middleware('auth:sanctum')->post('/flights/search', [
+	App\Http\Controllers\FlightSearchController::class, 'search'
+]);
+
+// Add a flight to watch for notifications.
+Route::middleware('auth:sanctum')->post('/watches', [
+	App\Http\Controllers\FlightSearchController::class, 'watch'
+]);
+
+// Type-ahead suggestions for the "Add flight" modal.
+Route::middleware('auth:sanctum')->get('/airports/search', [
+	App\Http\Controllers\AirportController::class, 'search'
+]);
+
+Route::middleware('auth:sanctum')->get('/airlines/search', [
+	App\Http\Controllers\AirlineController::class, 'search'
+]);
