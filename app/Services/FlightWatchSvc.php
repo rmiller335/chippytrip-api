@@ -59,7 +59,7 @@ class FlightWatchSvc {
 		foreach ($autoFamily as $familyMember) {
 			$watch->listeners()->firstOrCreate(
 				['user_id' => $familyMember->id],
-				['travelers' => $familyMember->name],
+				['travelers' => $familyMember->pivot->name],
 			);
 		}
 	}

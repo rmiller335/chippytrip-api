@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\WatchListenerResource;
 use App\Models\Watch;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 // =============================================================================
 class WatchListenerController extends Controller {
@@ -16,13 +17,9 @@ class WatchListenerController extends Controller {
 
 		abort_unless($watch->listeners()->where('user_id', $user->id)->exists(), 403);
 
-		$listeners = $watch->listeners()
-			->whereIn('user_id', $user->family->pluck('id'))
-			->with('user')
-			->get()
-		;
-
-		return WatchListenerResource::collection($listeners);
+		return WatchListenerResource::collection(
+			$this->familyListeners($watch, $user->family)
+		);
 	}
 
 	// =========================================================================
@@ -67,15 +64,25 @@ class WatchListenerController extends Controller {
 
 		$targetUsers->each(fn ($member) => $watch->listeners()->firstOrCreate(
 			['user_id' => $member->id],
-			['travelers' => $member->name],
+			['travelers' => $member->pivot->name],
 		));
 
-		$listeners = $watch->listeners()
-			->whereIn('user_id', $familyIds)
-			->with('user')
-			->get()
-		;
+		return WatchListenerResource::collection(
+			$this->familyListeners($watch, $family)
+		);
+	}
 
-		return WatchListenerResource::collection($listeners);
+	// =========================================================================
+	// The watch's listeners belonging to these family members, each with its
+	// user set to the family member (carrying the pivot) so the resource can
+	// show the name the authenticated user gave them.
+	private function familyListeners(Watch $watch, Collection $family): Collection {
+		$familyById = $family->keyBy('id');
+
+		return $watch->listeners()
+			->whereIn('user_id', $familyById->keys())
+			->get()
+			->each(fn ($listener) => $listener->setRelation('user', $familyById[$listener->user_id]))
+		;
 	}
 }

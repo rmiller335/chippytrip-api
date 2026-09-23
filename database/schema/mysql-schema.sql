@@ -170,6 +170,7 @@ CREATE TABLE `family_members` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
   `family_member_id` bigint unsigned NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `auto_add` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
@@ -546,5 +547,6 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (53,'2026_09_23_120
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (54,'2026_09_23_130000_add_subscription_type_to_users',9);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (55,'2026_09_23_130001_create_family_members_table',9);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (56,'2026_09_23_140000_make_users_password_nullable',10);
-INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (57,'2026_09_23_150000_add_password_reset_tokens_email_foreign',11);
-INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (58,'2026_09_23_150001_add_sessions_user_id_foreign',11);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (59,'2026_09_23_150000_add_password_reset_tokens_email_foreign',11);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (60,'2026_09_23_150001_add_sessions_user_id_foreign',11);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (61,'2026_09_23_160000_add_name_to_family_members',12);

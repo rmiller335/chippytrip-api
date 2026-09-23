@@ -19,6 +19,7 @@ class FamilyMember extends Model implements Auditable {
 	protected $fillable = [
 		'user_id',
 		'family_member_id',
+		'name',
 		'auto_add',
 	];
 

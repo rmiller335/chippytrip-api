@@ -52,7 +52,7 @@ class User extends Authenticatable {
 	// =========================================================================
 	public function family(): BelongsToMany {
 		return $this->belongsToMany(User::class, 'family_members', 'user_id', 'family_member_id')
-			->withPivot('auto_add')
+			->withPivot('name', 'auto_add')
 			->withTimestamps()
 		;
 	}

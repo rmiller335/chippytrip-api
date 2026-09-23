@@ -17,7 +17,9 @@ class FamilyMemberController extends Controller {
 	// Replaces the authenticated user's full set of family members. Any email
 	// that doesn't already belong to a user creates one (with subscription
 	// type 'family' and a null password, marking it as awaiting first-time
-	// login) so it can be attached as a listener later on.
+	// login) so it can be attached as a listener later on. The name is
+	// stored per-user on the family_members row, so it never changes an
+	// existing user's own name.
 	public function update(Request $request) {
 		$request->validate([
 			'family' =>				'present|array',
@@ -43,7 +45,10 @@ class FamilyMemberController extends Controller {
 				continue;
 			}
 
-			$sync[$member->id] = ['auto_add' => (bool) ($entry['auto_add'] ?? false)];
+			$sync[$member->id] = [
+				'name' =>		$entry['name'],
+				'auto_add' =>	(bool) ($entry['auto_add'] ?? false),
+			];
 		}
 
 		$user->family()->sync($sync);
