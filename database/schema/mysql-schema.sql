@@ -35,6 +35,7 @@ CREATE TABLE `airports` (
   `icao` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `iata` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `display_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `city` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `state` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `country_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -115,6 +116,38 @@ CREATE TABLE `countries` (
   UNIQUE KEY `countries_iso3_unique` (`iso3`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `email_related_records`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `email_related_records` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `inbound_email_id` bigint unsigned NOT NULL,
+  `record_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `record_id` bigint unsigned NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `email_related_records_inbound_email_id_foreign` (`inbound_email_id`),
+  KEY `email_related_records_record_type_record_id_index` (`record_type`,`record_id`),
+  CONSTRAINT `email_related_records_inbound_email_id_foreign` FOREIGN KEY (`inbound_email_id`) REFERENCES `inbound_emails` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `errors`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `errors` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `errorable_id` bigint unsigned NOT NULL,
+  `errorable_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `message` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `context` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `errors_errorable_type_errorable_id_index` (`errorable_type`,`errorable_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `failed_jobs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -128,6 +161,23 @@ CREATE TABLE `failed_jobs` (
   `failed_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `failed_jobs_uuid_unique` (`uuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `family_members`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `family_members` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned NOT NULL,
+  `family_member_id` bigint unsigned NOT NULL,
+  `auto_add` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `family_members_user_id_family_member_id_unique` (`user_id`,`family_member_id`),
+  KEY `family_members_family_member_id_foreign` (`family_member_id`),
+  CONSTRAINT `family_members_family_member_id_foreign` FOREIGN KEY (`family_member_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `family_members_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `flights`;
@@ -165,6 +215,27 @@ CREATE TABLE `flights` (
   CONSTRAINT `flights_airline_icao_foreign` FOREIGN KEY (`airline_icao`) REFERENCES `airlines` (`icao`),
   CONSTRAINT `flights_destination_icao_foreign` FOREIGN KEY (`destination_icao`) REFERENCES `airports` (`icao`),
   CONSTRAINT `flights_origin_icao_foreign` FOREIGN KEY (`origin_icao`) REFERENCES `airports` (`icao`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `inbound_emails`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `inbound_emails` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned DEFAULT NULL,
+  `message_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `from_address` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `subject` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `text_body` longtext COLLATE utf8mb4_unicode_ci,
+  `html_body` longtext COLLATE utf8mb4_unicode_ci,
+  `status` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `error` text COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `inbound_emails_user_id_foreign` (`user_id`),
+  KEY `inbound_emails_message_id_index` (`message_id`),
+  CONSTRAINT `inbound_emails_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `job_batches`;
@@ -249,7 +320,8 @@ CREATE TABLE `password_reset_tokens` (
   `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `token` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`email`)
+  PRIMARY KEY (`email`),
+  CONSTRAINT `password_reset_tokens_email_foreign` FOREIGN KEY (`email`) REFERENCES `users` (`email`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `personal_access_tokens`;
@@ -284,7 +356,8 @@ CREATE TABLE `sessions` (
   `last_activity` int NOT NULL,
   PRIMARY KEY (`id`),
   KEY `sessions_user_id_index` (`user_id`),
-  KEY `sessions_last_activity_index` (`last_activity`)
+  KEY `sessions_last_activity_index` (`last_activity`),
+  CONSTRAINT `sessions_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `user_channels`;
@@ -294,12 +367,14 @@ CREATE TABLE `user_channels` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint unsigned NOT NULL,
   `channel` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `identifier` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `credentials` json NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `user_channels_user_id_channel_unique` (`user_id`,`channel`),
-  KEY `user_channels_channel_index` (`channel`)
+  UNIQUE KEY `user_channels_user_id_channel_identifier_unique` (`user_id`,`channel`,`identifier`),
+  KEY `user_channels_channel_index` (`channel`),
+  CONSTRAINT `user_channels_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `users`;
@@ -310,12 +385,14 @@ CREATE TABLE `users` (
   `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `subscription_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'free',
   `remember_token` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `users_email_unique` (`email`)
+  UNIQUE KEY `users_email_unique` (`email`),
+  KEY `users_subscription_type_index` (`subscription_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `watch_callbacks`;
@@ -323,8 +400,10 @@ DROP TABLE IF EXISTS `watch_callbacks`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `watch_callbacks` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `notification_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `alert_id` bigint unsigned NOT NULL COMMENT 'FlightAware alert ID that triggered this callback',
   `event_code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Event type: filed, offblock, departure, arrival, onblock, diverted, cancelled, ...',
+  `event_dt` datetime DEFAULT NULL,
   `summary` longtext COLLATE utf8mb4_unicode_ci,
   `short_description` longtext COLLATE utf8mb4_unicode_ci,
   `long_description` text COLLATE utf8mb4_unicode_ci COMMENT 'Full human-readable description of the event',
@@ -382,6 +461,7 @@ CREATE TABLE `watch_callbacks` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `watch_callbacks_notification_id_unique` (`notification_id`),
   KEY `watch_callbacks_alert_id_index` (`alert_id`),
   KEY `watch_callbacks_event_code_index` (`event_code`),
   KEY `watch_callbacks_fa_flight_id_index` (`fa_flight_id`),
@@ -416,6 +496,8 @@ CREATE TABLE `watches_notifications` (
   `watch_id` bigint unsigned NOT NULL,
   `notification_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`watch_id`,`notification_id`),
+  KEY `watches_notifications_notification_id_foreign` (`notification_id`),
+  CONSTRAINT `watches_notifications_notification_id_foreign` FOREIGN KEY (`notification_id`) REFERENCES `notifications` (`id`) ON DELETE CASCADE,
   CONSTRAINT `watches_notifications_watch_id_foreign` FOREIGN KEY (`watch_id`) REFERENCES `watches` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -451,3 +533,18 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (22,'2026_06_03_143
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (23,'2026_06_15_163631_create_watches_notifications_table',1);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (24,'2026_06_16_123615_expand_callback_description_columns',1);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (25,'2026_06_24_120000_add_missing_columns_to_airports',1);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (31,'2026_08_03_171133_add_identifier_to_user_channels',2);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (32,'2026_08_26_165043_add_notification_id_to_watch_callbacks',3);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (34,'2026_09_01_145432_add_event_dt_to_watch_callbacks',4);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (47,'2026_09_09_142733_create_inbound_emails_table',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (48,'2026_09_10_142911_create_email_related_records_table',5);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (49,'2026_09_11_135807_create_errors_table',6);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (50,'2026_09_11_175406_add_display_name_to_airports',7);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (51,'2026_09_23_120000_fix_watches_notifications_notification_id_foreign',8);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (52,'2026_09_23_120001_add_index_to_email_related_records',8);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (53,'2026_09_23_120002_fix_user_channels_user_id_foreign',8);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (54,'2026_09_23_130000_add_subscription_type_to_users',9);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (55,'2026_09_23_130001_create_family_members_table',9);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (56,'2026_09_23_140000_make_users_password_nullable',10);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (57,'2026_09_23_150000_add_password_reset_tokens_email_foreign',11);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (58,'2026_09_23_150001_add_sessions_user_id_foreign',11);

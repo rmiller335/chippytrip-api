@@ -55,3 +55,23 @@ Route::middleware('auth:sanctum')->get('/airports/search', [
 Route::middleware('auth:sanctum')->get('/airlines/search', [
 	App\Http\Controllers\AirlineController::class, 'search'
 ]);
+
+// Get the authenticated user's family members.
+Route::middleware('auth:sanctum')->get('/family-members', [
+	App\Http\Controllers\FamilyMemberController::class, 'index'
+]);
+
+// Replace the authenticated user's full set of family members.
+Route::middleware('auth:sanctum')->put('/family-members', [
+	App\Http\Controllers\FamilyMemberController::class, 'update'
+]);
+
+// Get the authenticated user's family-member listeners on a watch.
+Route::middleware('auth:sanctum')->get('/watches/{watch}/listeners', [
+	App\Http\Controllers\WatchListenerController::class, 'index'
+]);
+
+// Replace the authenticated user's family-member listeners on a watch.
+Route::middleware('auth:sanctum')->put('/watches/{watch}/listeners', [
+	App\Http\Controllers\WatchListenerController::class, 'update'
+]);

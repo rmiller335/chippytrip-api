@@ -6,6 +6,7 @@ use App\Jobs\EnableWatch;
 use App\Models\Flight;
 use App\Models\Listener;
 use App\Models\User;
+use App\Models\Watch;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -33,11 +34,34 @@ class FlightWatchSvc {
 			['travelers' => $travelers ?: $user->name],
 		);
 
-		if ($watch->watchable()) {
+		$this->addAutoFamilyListeners($watch, $user);
+
+		// Only ever enable a watch once. Re-dispatching EnableWatch for a
+		// watch that's already enabled creates a brand-new FlightAware alert
+		// and overwrites subscription_id, silently orphaning the old alert:
+		// its still-in-flight webhooks (e.g. a later arrival event) get
+		// rejected by WatchCallback::callback() once subscription_id no
+		// longer matches, and the same physical event can end up delivered
+		// (and notified) twice while both alerts are briefly live.
+		if (! $watch->enabled && $watch->watchable()) {
 			EnableWatch::dispatch($watch);
 		}
 
 		return $listener;
+	}
+
+	// =========================================================================
+	// Add a listener for each of the user's family members flagged to be
+	// auto-added whenever this user starts watching a flight.
+	private function addAutoFamilyListeners(Watch $watch, User $user): void {
+		$autoFamily = $user->family()->wherePivot('auto_add', true)->get();
+
+		foreach ($autoFamily as $familyMember) {
+			$watch->listeners()->firstOrCreate(
+				['user_id' => $familyMember->id],
+				['travelers' => $familyMember->name],
+			);
+		}
 	}
 
 	// =========================================================================
