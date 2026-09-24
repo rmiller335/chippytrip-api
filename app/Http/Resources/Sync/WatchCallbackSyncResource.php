@@ -24,7 +24,7 @@ class WatchCallbackSyncResource extends JsonResource {
 			'diverted'			=> $this->diverted,
 
 			'flight_number'		=> $this->watch->flight->flight,
-			'airline_icao'		=> $this->watch->flight->ident_icao,
+			'airline_icao'		=> $this->watch->flight->airline_icao,
 
 			'origin_iata'		=> $this->watch->flight->origin?->iata,
 			'origin_icao'		=> $this->watch->flight->origin?->icao,
@@ -48,6 +48,7 @@ class WatchCallbackSyncResource extends JsonResource {
 			'estimated_in'		=> $this->estimated_in,
 			'actual_in'			=> $this->actual_in,
 
+			'scheduled_out'		=> $this->scheduled_out,
 			'estimated_out'		=> $this->estimated_out,
 			'actual_out'		=> $this->actual_out,
 

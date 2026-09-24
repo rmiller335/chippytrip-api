@@ -80,4 +80,19 @@ class ListenerSyncControllerTest extends TestCase {
 		$this->assertCount(2, $response->json('listeners'));
 		$this->assertCount(2, $response->json('flights'));
 	}
+
+	// =========================================================================
+	public function test_sync_notifications_include_airline_and_scheduled_out(): void {
+		$flight = $this->makeFlight(['departure_date' => now()->toDateString()]);
+		$watch = Watch::create(['flight_id' => $flight->id, 'subscription_id' => '1234567']);
+		$user = User::factory()->create();
+		$user->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
+		$scheduledOut = now()->setTime(16, 0)->utc()->toIso8601ZuluString();
+		$this->makeCallback($watch, 'FA-TODAY', 'departure', $scheduledOut);
+
+		$response = $this->actingAs($user, 'sanctum')->getJson('/api/sync/listeners');
+
+		$response->assertJsonPath('flight_notifications.0.airline_icao', 'UAL');
+		$this->assertNotNull($response->json('flight_notifications.0.scheduled_out'));
+	}
 }

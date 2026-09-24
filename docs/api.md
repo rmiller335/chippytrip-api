@@ -603,12 +603,12 @@ sort by `event_dt`.
 | `summary`, `short_description`, `long_description` | string\|null | FlightAware's own text, for a detail view. `long_description` has several lines. |
 | `cancelled`, `diverted` | boolean | |
 | `flight_number` | string | IATA flight number. |
-| `airline_icao` | null | Currently always `null` (a bug); use the flight's `airline_icao`. |
+| `airline_icao` | string | The watched flight's airline. |
 | `origin_*`, `destination_*` | string\|null | `_iata`, `_icao`, `_name`, `_city` of the watched flight's airports. |
 | `scheduled_off`, `estimated_off`, `actual_off` | string\|null | Takeoff times, UTC. |
 | `scheduled_on`, `estimated_on`, `actual_on` | string\|null | Landing times, UTC. |
 | `scheduled_in`, `estimated_in`, `actual_in` | string\|null | Gate arrival times, UTC. |
-| `estimated_out`, `actual_out` | string\|null | Gate departure times, UTC. The scheduled gate departure is `flights[].departure_dt`. |
+| `scheduled_out`, `estimated_out`, `actual_out` | string\|null | Gate departure times, UTC. |
 | `created_at`, `updated_at` | string | |
 
 ### airlines
@@ -646,13 +646,13 @@ sort by `event_dt`.
       "cancelled": false,
       "diverted": false,
       "flight_number": "UA100",
-      "airline_icao": null,
+      "airline_icao": "UAL",
       "origin_iata": "SFO", "origin_icao": "KSFO", "origin_name": "San Francisco Intl", "origin_city": "San Francisco",
       "destination_iata": "JFK", "destination_icao": "KJFK", "destination_name": "John F Kennedy Intl", "destination_city": "New York",
       "scheduled_off": "2026-09-22T16:15:00.000000Z", "estimated_off": null, "actual_off": "2026-09-22T16:20:00.000000Z",
       "scheduled_on": null, "estimated_on": null, "actual_on": null,
       "scheduled_in": "2026-09-23T00:30:00.000000Z", "estimated_in": "2026-09-23T00:25:00.000000Z", "actual_in": null,
-      "estimated_out": null, "actual_out": "2026-09-22T16:05:00.000000Z",
+      "scheduled_out": "2026-09-22T16:00:00.000000Z", "estimated_out": null, "actual_out": "2026-09-22T16:05:00.000000Z",
       "created_at": "2026-09-22T16:21:00+00:00",
       "updated_at": "2026-09-22T16:21:00+00:00"
     }
