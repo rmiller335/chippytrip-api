@@ -145,13 +145,23 @@ class Airport extends Model implements Auditable {
 	}
 
 	// =========================================================================
-	public static function getAirportName(string $icao, string $iata): string {
-		$airport = Airport::where('icao', $icao)
-			->orWhere('iata', $iata)
-			->first();
+	// FlightAware returns null codes for airports without one, so either
+	// may be missing. ICAO wins if both match different airports.
+	public static function getAirportName(?string $icao, ?string $iata): string {
+		if ($icao) {
+			$airport = static::where('icao', strtoupper($icao))->first();
 
-		if ($airport) {
-			return $airport->name;
+			if ($airport) {
+				return $airport->name;
+			}
+		}
+
+		if ($iata) {
+			$airport = static::where('iata', strtoupper($iata))->first();
+
+			if ($airport) {
+				return $airport->name;
+			}
 		}
 
 		return '';

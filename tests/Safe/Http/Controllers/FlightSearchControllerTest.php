@@ -216,30 +216,36 @@ class FlightSearchControllerTest extends TestCase {
 	}
 
 	// =========================================================================
-	public function test_search_returns_departure_and_arrival_times(): void {
-		$user = User::factory()->create();
+	private function scheduleEntry(array $overrides = []): array {
+		return array_merge([
+			'ident_iata' => 'VS3',
+			'ident_icao' => 'VIR3',
+			'origin_icao' => 'EGLL',
+			'origin_iata' => 'LHR',
+			'destination_icao' => 'KJFK',
+			'destination_iata' => 'JFK',
+			'scheduled_out' => '2026-07-01T14:00:00Z',
+			'scheduled_in' => '2026-07-01T22:05:00Z',
+		], $overrides);
+	}
 
+	// =========================================================================
+	private function searchReturning(array $entries) {
 		Http::fake([
-			'*/schedules/*' => Http::response([
-				'scheduled' => [[
-					'ident_iata' => 'VS3',
-					'ident_icao' => 'VIR3',
-					'origin_icao' => 'EGLL',
-					'origin_iata' => 'LHR',
-					'destination_icao' => 'KJFK',
-					'destination_iata' => 'JFK',
-					'scheduled_out' => '2026-07-01T14:00:00Z',
-					'scheduled_in' => '2026-07-01T22:05:00Z',
-				]],
-			], 200),
+			'*/schedules/*' => Http::response(['scheduled' => $entries], 200),
 		]);
 
-		$response = $this->actingAs($user, 'sanctum')
+		return $this->actingAs(User::factory()->create(), 'sanctum')
 			->postJson('/api/flights/search', [
 				'origin' => 'EGLL',
 				'destination' => 'KJFK',
 				'date' => Carbon::now()->addDays(10)->toDateString(),
 			]);
+	}
+
+	// =========================================================================
+	public function test_search_returns_departure_and_arrival_times(): void {
+		$response = $this->searchReturning([$this->scheduleEntry()]);
 
 		$response->assertStatus(200);
 		$response->assertJsonCount(1);
@@ -251,5 +257,48 @@ class FlightSearchControllerTest extends TestCase {
 			'destination_name' => 'John F Kennedy Intl',
 			'airline_name' => 'Virgin Atlantic',
 		]]);
+	}
+
+	// =========================================================================
+	// FlightAware sends null for an airport without an IATA code. That used
+	// to throw a TypeError and fail the whole search.
+	public function test_search_handles_a_missing_iata_code(): void {
+		$response = $this->searchReturning([
+			$this->scheduleEntry(),
+			$this->scheduleEntry(['ident_iata' => 'VS4', 'destination_iata' => null]),
+		]);
+
+		$response->assertStatus(200);
+		$response->assertJsonCount(2);
+		$response->assertJsonPath('1.destination_iata', null);
+		$response->assertJsonPath('1.destination_name', 'John F Kennedy Intl');
+	}
+
+	// =========================================================================
+	public function test_search_falls_back_to_iata_without_an_icao_code(): void {
+		$response = $this->searchReturning([$this->scheduleEntry(['origin_icao' => null])]);
+
+		$response->assertStatus(200);
+		$response->assertJsonPath('0.origin_name', 'London Heathrow');
+	}
+
+	// =========================================================================
+	public function test_search_returns_empty_name_without_either_code(): void {
+		$response = $this->searchReturning([
+			$this->scheduleEntry(['origin_icao' => null, 'origin_iata' => null]),
+		]);
+
+		$response->assertStatus(200);
+		$response->assertJsonPath('0.origin_name', '');
+	}
+
+	// =========================================================================
+	public function test_search_prefers_icao_when_codes_disagree(): void {
+		$response = $this->searchReturning([
+			$this->scheduleEntry(['origin_icao' => 'EGLL', 'origin_iata' => 'JFK']),
+		]);
+
+		$response->assertStatus(200);
+		$response->assertJsonPath('0.origin_name', 'London Heathrow');
 	}
 }
