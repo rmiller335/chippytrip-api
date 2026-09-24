@@ -10,7 +10,7 @@ class WatchCallbackTest extends TestCase {
 	// =========================================================================
 	private function payload(array $overrides = []): array {
 		return array_merge([
-			'alert_id' => 'SUB123',
+			'alert_id' => '1234567',
 			'event_code' => 'departure',
 			'summary' => 'UA100 departed',
 			'flight' => [
@@ -31,7 +31,7 @@ class WatchCallbackTest extends TestCase {
 	public function test_from_api_payload_maps_envelope_and_flight_fields(): void {
 		$wc = WatchCallback::fromApiPayload($this->payload(), '127.0.0.1');
 
-		$this->assertSame('SUB123', $wc->alert_id);
+		$this->assertSame('1234567', $wc->alert_id);
 		$this->assertSame('departure', $wc->event_code);
 		$this->assertSame('FA123', $wc->fa_flight_id);
 		$this->assertSame('KSFO', $wc->origin);

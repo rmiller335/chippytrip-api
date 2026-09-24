@@ -225,7 +225,7 @@ public function test_invalid_secret_returns_403(): void
 			->firstOrFail()
 		;
 
-        $payload = $this->buildPayload($watch, ['alert_id' => 'NONEXISTENT-ID']);
+        $payload = $this->buildPayload($watch, ['alert_id' => '999999999']);
 
         $request = Request::create(
             '/webhook/callback?s=' . $watch->secret,

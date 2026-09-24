@@ -16,14 +16,14 @@ class EnableWatchTest extends TestCase {
 		$watch = Watch::create(['flight_id' => $flight->id]);
 
 		Http::fake([
-			'*/alerts' => Http::response(null, 201, ['Location' => '/alerts/SUB123']),
+			'*/alerts' => Http::response(null, 201, ['Location' => '/alerts/1234567']),
 		]);
 
 		(new EnableWatch($watch))->handle(app(FlightAwareSvc::class));
 
 		$watch->refresh();
 		$this->assertTrue($watch->enabled);
-		$this->assertSame('SUB123', $watch->subscription_id);
+		$this->assertSame('1234567', $watch->subscription_id);
 		$this->assertNotNull($watch->secret);
 	}
 

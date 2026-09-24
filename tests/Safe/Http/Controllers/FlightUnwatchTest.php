@@ -25,7 +25,7 @@ class FlightUnwatchTest extends TestCase {
 		$this->flight = $this->makeFlight();
 		$this->watch = Watch::create([
 			'flight_id' => $this->flight->id,
-			'subscription_id' => 'SUB123',
+			'subscription_id' => '1234567',
 			'secret' => 'topsecret',
 			'enabled' => true,
 		]);

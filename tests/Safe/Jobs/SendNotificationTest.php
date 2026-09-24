@@ -14,7 +14,7 @@ class SendNotificationTest extends TestCase {
 	// =========================================================================
 	private function makeCallback(string $eventCode): WatchCallback {
 		$wc = WatchCallback::fromApiPayload([
-			'alert_id' => 'SUB123',
+			'alert_id' => '1234567',
 			'event_code' => $eventCode,
 			'summary' => 'UA100 update',
 			'flight' => ['fa_flight_id' => 'FA123', 'ident' => 'UA100'],

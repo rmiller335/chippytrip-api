@@ -15,13 +15,13 @@ class DisableWatchTest extends TestCase {
 		$flight = $this->makeFlight();
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB123',
+			'subscription_id' => '1234567',
 			'secret' => 'secret123',
 			'enabled' => true,
 		]);
 
 		Http::fake([
-			'*/alerts/SUB123' => Http::response(null, 204),
+			'*/alerts/1234567' => Http::response(null, 204),
 		]);
 
 		(new DisableWatch($watch))->handle(app(FlightAwareSvc::class));
@@ -32,6 +32,6 @@ class DisableWatchTest extends TestCase {
 		$this->assertNull($watch->secret);
 
 		Http::assertSent(fn ($request) => $request->method() === 'DELETE'
-			&& str_contains($request->url(), '/alerts/SUB123'));
+			&& str_contains($request->url(), '/alerts/1234567'));
 	}
 }

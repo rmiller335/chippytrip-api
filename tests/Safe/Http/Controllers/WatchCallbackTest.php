@@ -39,17 +39,17 @@ class WatchCallbackTest extends TestCase {
 		$flight = $this->makeFlight(['departure_date' => $today]);
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB123',
+			'subscription_id' => '1234567',
 			'secret' => 'topsecret',
 			'enabled' => true,
 		]);
 		$user = User::factory()->create();
 		$user->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
 
-		$response = $this->postJson('/api/watch-callback?s=topsecret', $this->payload('SUB123', $today));
+		$response = $this->postJson('/api/watch-callback?s=topsecret', $this->payload('1234567', $today));
 
 		$response->assertStatus(200);
-		$this->assertDatabaseHas('watch_callbacks', ['alert_id' => 'SUB123', 'watch_id' => $watch->id]);
+		$this->assertDatabaseHas('watch_callbacks', ['alert_id' => '1234567', 'watch_id' => $watch->id]);
 
 		Bus::assertChained([SendNotification::class, NotificationsIndex::class]);
 	}
@@ -61,7 +61,7 @@ class WatchCallbackTest extends TestCase {
 		$flight = $this->makeFlight(['departure_date' => Carbon::now()->toDateString()]);
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB123',
+			'subscription_id' => '1234567',
 			'secret' => 'topsecret',
 			'enabled' => true,
 		]);
@@ -71,7 +71,7 @@ class WatchCallbackTest extends TestCase {
 		// Payload claims a departure date that doesn't match the flight on file.
 		$mismatchedDate = Carbon::now()->addDays(5)->toDateString();
 
-		$response = $this->postJson('/api/watch-callback?s=topsecret', $this->payload('SUB123', $mismatchedDate));
+		$response = $this->postJson('/api/watch-callback?s=topsecret', $this->payload('1234567', $mismatchedDate));
 
 		$response->assertStatus(200);
 		Bus::assertNothingDispatched();
@@ -84,12 +84,12 @@ class WatchCallbackTest extends TestCase {
 		$flight = $this->makeFlight();
 		Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB123',
+			'subscription_id' => '1234567',
 			'secret' => 'topsecret',
 			'enabled' => true,
 		]);
 
-		$response = $this->postJson('/api/watch-callback?s=wrong-secret', $this->payload('SUB123', Carbon::now()->toDateString()));
+		$response = $this->postJson('/api/watch-callback?s=wrong-secret', $this->payload('1234567', Carbon::now()->toDateString()));
 
 		$response->assertStatus(403);
 		$this->assertDatabaseCount('watch_callbacks', 0);
@@ -97,7 +97,7 @@ class WatchCallbackTest extends TestCase {
 
 	// =========================================================================
 	public function test_callback_rejects_unknown_subscription(): void {
-		$response = $this->postJson('/api/watch-callback?s=anything', $this->payload('UNKNOWN-SUB', Carbon::now()->toDateString()));
+		$response = $this->postJson('/api/watch-callback?s=anything', $this->payload('999999999', Carbon::now()->toDateString()));
 
 		$response->assertStatus(403);
 		$this->assertDatabaseCount('watch_callbacks', 0);
@@ -115,7 +115,7 @@ class WatchCallbackTest extends TestCase {
 		$flight = $this->makeFlight(['departure_date' => '2026-07-01']);
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB123',
+			'subscription_id' => '1234567',
 			'secret' => 'topsecret',
 			'enabled' => true,
 		]);
@@ -131,7 +131,7 @@ class WatchCallbackTest extends TestCase {
 	// =========================================================================
 	private function postCallback(string $eventCode, ?string $scheduledOut) {
 		return $this->postJson('/api/watch-callback?s=topsecret', [
-			'alert_id' => 'SUB123',
+			'alert_id' => '1234567',
 			'event_code' => $eventCode,
 			'summary' => "UA100 $eventCode",
 			'flight' => [
@@ -176,7 +176,7 @@ class WatchCallbackTest extends TestCase {
 
 		$this->postCallback('arrival', '2026-06-30T16:00:00Z')->assertStatus(200);
 
-		$this->assertDatabaseHas('watch_callbacks', ['alert_id' => 'SUB123', 'event_code' => 'arrival']);
+		$this->assertDatabaseHas('watch_callbacks', ['alert_id' => '1234567', 'event_code' => 'arrival']);
 		Notification::assertNothingSent();
 	}
 

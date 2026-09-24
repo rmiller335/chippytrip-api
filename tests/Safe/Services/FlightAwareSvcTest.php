@@ -21,32 +21,32 @@ class FlightAwareSvcTest extends TestCase {
 
 	// =========================================================================
 	public function test_watch_delete_sends_delete_request(): void {
-		Http::fake(['*/alerts/SUB123' => Http::response(null, 204)]);
+		Http::fake(['*/alerts/1234567' => Http::response(null, 204)]);
 
-		(new FlightAwareSvc())->watchDelete('SUB123');
+		(new FlightAwareSvc())->watchDelete('1234567');
 
 		Http::assertSent(fn ($request) => $request->method() === 'DELETE'
-			&& str_contains($request->url(), '/alerts/SUB123'));
+			&& str_contains($request->url(), '/alerts/1234567'));
 	}
 
 	// =========================================================================
 	public function test_watch_list_paginates_across_pages(): void {
 		Http::fake([
 			'*/alerts' => Http::response([
-				'alerts' => [['id' => 'SUB1'], ['id' => 'SUB2']],
+				'alerts' => [['id' => '3000001'], ['id' => '3000002']],
 				'links' => ['next' => '/alerts?cursor=2'],
 			], 200),
-			'*alerts?cursor=2' => Http::response(['alerts' => [['id' => 'SUB3']]], 200),
+			'*alerts?cursor=2' => Http::response(['alerts' => [['id' => '3000003']]], 200),
 		]);
 
 		$alerts = (new FlightAwareSvc())->watchList();
 
-		$this->assertSame(['SUB1', 'SUB2', 'SUB3'], array_values(array_map(fn ($a) => $a->id, $alerts)));
+		$this->assertSame(['3000001', '3000002', '3000003'], array_values(array_map(fn ($a) => $a->id, $alerts)));
 
 		// watchList() must not do a per-alert existence check: FlightAware's
 		// single-alert endpoint lags the list feed, so that check could 404 on
 		// an alert that was only just created and wrongly drop it.
-		Http::assertNotSent(fn ($request) => str_contains($request->url(), '/alerts/SUB'));
+		Http::assertNotSent(fn ($request) => str_contains($request->url(), '/alerts/3000'));
 	}
 
 	// =========================================================================

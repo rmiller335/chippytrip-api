@@ -15,11 +15,11 @@ class NotificationsIndexTest extends TestCase {
 	// =========================================================================
 	public function test_handle_attaches_unindexed_notifications_to_their_watch(): void {
 		$flight = $this->makeFlight();
-		$watch = Watch::create(['flight_id' => $flight->id, 'subscription_id' => 'SUB123']);
+		$watch = Watch::create(['flight_id' => $flight->id, 'subscription_id' => '1234567']);
 		$user = User::factory()->create();
 
 		$callback = WatchCallback::fromApiPayload([
-			'alert_id' => 'SUB123',
+			'alert_id' => '1234567',
 			'event_code' => 'departure',
 			'summary' => 'UA100 departed',
 			'flight' => ['fa_flight_id' => 'FA123', 'ident' => 'UA100'],
@@ -44,11 +44,11 @@ class NotificationsIndexTest extends TestCase {
 	// =========================================================================
 	public function test_handle_does_not_reattach_already_indexed_notifications(): void {
 		$flight = $this->makeFlight();
-		$watch = Watch::create(['flight_id' => $flight->id, 'subscription_id' => 'SUB123']);
+		$watch = Watch::create(['flight_id' => $flight->id, 'subscription_id' => '1234567']);
 		$user = User::factory()->create();
 
 		$callback = WatchCallback::fromApiPayload([
-			'alert_id' => 'SUB123',
+			'alert_id' => '1234567',
 			'event_code' => 'departure',
 			'summary' => 'UA100 departed',
 			'flight' => ['fa_flight_id' => 'FA123', 'ident' => 'UA100'],

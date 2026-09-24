@@ -59,7 +59,7 @@ class MaintenanceNightlyTest extends TestCase {
 		]);
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB-B',
+			'subscription_id' => '2000001',
 			'enabled' => true,
 		]);
 		$user->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
@@ -82,9 +82,9 @@ class MaintenanceNightlyTest extends TestCase {
 		// delete it remotely.
 		$fa = \Mockery::mock(FlightAwareSvc::class);
 		$fa->shouldReceive('watchList')->once()->andReturn([
-			(object) ['id' => 'SUB-ORPHAN'],
+			(object) ['id' => '2000002'],
 		]);
-		$fa->shouldReceive('watchDelete')->once()->with('SUB-ORPHAN');
+		$fa->shouldReceive('watchDelete')->once()->with('2000002');
 		$this->app->instance(FlightAwareSvc::class, $fa);
 
 		$this->artisan('maintenance:nightly')->assertExitCode(0);
@@ -97,7 +97,7 @@ class MaintenanceNightlyTest extends TestCase {
 		$flight = $this->makeFlight(['flight' => 'UA300']);
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB-KNOWN',
+			'subscription_id' => '2000003',
 			'enabled' => false,
 		]);
 		// A listener, so pruneUnwatched() keeps the watch.
@@ -110,7 +110,7 @@ class MaintenanceNightlyTest extends TestCase {
 		// matching Watch record, regardless of how stale FlightAware's view is.
 		$fa = \Mockery::mock(FlightAwareSvc::class);
 		$fa->shouldReceive('watchList')->once()->andReturn([
-			(object) ['id' => 'SUB-KNOWN'],
+			(object) ['id' => '2000003'],
 		]);
 		$fa->shouldNotReceive('watchDelete');
 		$this->app->instance(FlightAwareSvc::class, $fa);
@@ -121,7 +121,7 @@ class MaintenanceNightlyTest extends TestCase {
 	// =========================================================================
 	private function makeCallback(?Watch $watch): WatchCallback {
 		$wc = WatchCallback::fromApiPayload([
-			'alert_id' => $watch?->subscription_id ?? 'SUB-LOST',
+			'alert_id' => $watch?->subscription_id ?? '2000004',
 			'event_code' => 'departure',
 			'flight' => ['fa_flight_id' => 'FA123', 'ident' => 'UA100'],
 		]);
@@ -156,7 +156,7 @@ class MaintenanceNightlyTest extends TestCase {
 		$flight = $this->makeFlight();
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB-GONE',
+			'subscription_id' => '2000005',
 			'enabled' => true,
 		]);
 		$callback = $this->makeCallback($watch);
@@ -175,7 +175,7 @@ class MaintenanceNightlyTest extends TestCase {
 			'record_id' => $flight->id,
 		]);
 
-		$this->mockFlightAware(['SUB-GONE'], ['SUB-GONE']);
+		$this->mockFlightAware(['2000005'], ['2000005']);
 
 		$this->artisan('maintenance:nightly')->assertExitCode(0);
 
@@ -193,13 +193,13 @@ class MaintenanceNightlyTest extends TestCase {
 		$flight = $this->makeFlight();
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB-LIVE',
+			'subscription_id' => '2000006',
 			'enabled' => true,
 		]);
 		User::factory()->create()->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
 		$callback = $this->makeCallback($watch);
 
-		$this->mockFlightAware(['SUB-LIVE'], []);
+		$this->mockFlightAware(['2000006'], []);
 
 		$this->artisan('maintenance:nightly')->assertExitCode(0);
 

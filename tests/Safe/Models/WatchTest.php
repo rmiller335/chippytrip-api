@@ -29,9 +29,9 @@ class WatchTest extends TestCase {
 		$flight = $this->makeFlight();
 		$watch = Watch::create(['flight_id' => $flight->id]);
 
-		$watch->enable('SUB123', 'secret123');
+		$watch->enable('1234567', 'secret123');
 
-		$this->assertSame('SUB123', $watch->subscription_id);
+		$this->assertSame('1234567', $watch->subscription_id);
 		$this->assertSame('secret123', $watch->secret);
 		$this->assertTrue($watch->enabled);
 	}
@@ -41,7 +41,7 @@ class WatchTest extends TestCase {
 		$flight = $this->makeFlight();
 		$watch = Watch::create([
 			'flight_id' => $flight->id,
-			'subscription_id' => 'SUB123',
+			'subscription_id' => '1234567',
 			'secret' => 'secret123',
 			'enabled' => true,
 		]);
