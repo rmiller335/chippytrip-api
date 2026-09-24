@@ -139,7 +139,7 @@ Use the whole string, including the `1|` prefix, as the bearer token.
 | `PUT` | [`/api/watches/{watch_id}/listeners`](#replace-a-flights-family-listeners) | token | Replace them |
 | `GET` | [`/api/sync/listeners`](#sync) | token | Everything the app stores locally |
 | `POST` | [`/api/watch-callback`](#flightaware-alerts) | secret | FlightAware alert webhook |
-| `POST` | [`/api/postmark/inbound`](#forwarded-confirmation-emails) | — | Postmark inbound email webhook |
+| `POST` | [`/api/postmark/inbound`](#forwarded-confirmation-emails) | basic auth | Postmark inbound email webhook |
 | `GET` | [`/health`](#health-check) | health token | Health check for uptime monitors |
 
 ## Get the current user
@@ -702,9 +702,15 @@ POST /api/postmark/inbound
 ```
 
 Postmark posts here when a user forwards a booking confirmation to the
-inbound address (`POSTMARK_INBOUND_URL`). It uses Postmark's inbound JSON:
-`FromFull.Email` (required), `Subject`, `TextBody`, `HtmlBody`,
-`MessageID`.
+inbound email address (e.g. `plans@chippytrip.com`). This URL is set as
+the inbound webhook in Postmark's server settings. It uses Postmark's
+inbound JSON: `FromFull.Email` (required), `Subject`, `TextBody`,
+`HtmlBody`, `MessageID`.
+
+`php artisan flight:test-email` posts a sample confirmation to
+`POSTMARK_INBOUND_URL` in the same format, to test parsing without
+sending an email. It sends the basic-auth credentials itself, so leave
+them out of that URL.
 
 - If the sender's email belongs to a user (ignoring case), the email is
   stored and parsed (with OpenAI) in the background, and the flights found
@@ -713,7 +719,16 @@ inbound address (`POSTMARK_INBOUND_URL`). It uses Postmark's inbound JSON:
 - A Postmark retry with the same `MessageID` is stored and parsed once.
 - Returns `200 OK` (plain text).
 
-This endpoint has no authentication.
+It requires HTTP basic auth, user `POSTMARK_INBOUND_USER` (default
+`inbound`) and password `POSTMARK_INBOUND_PASSWORD`. Put them in the
+inbound webhook URL in Postmark's server settings:
+
+```
+https://inbound:<POSTMARK_INBOUND_PASSWORD>@api.chippytrip.com/api/postmark/inbound
+```
+
+Without them, or if `POSTMARK_INBOUND_PASSWORD` isn't set, it returns
+`401` and nothing is stored.
 
 ## Health check
 

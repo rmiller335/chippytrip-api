@@ -18,7 +18,8 @@ Route::post('/watch-callback', [
 	App\Http\Controllers\WatchCallback::class, 'callback'
 ]);
 
-Route::post('/postmark/inbound', [
+// Postmark inbound email webhook; basic auth, see config/postmark.php.
+Route::middleware(App\Http\Middleware\VerifyPostmarkInbound::class)->post('/postmark/inbound', [
 	App\Http\Controllers\PostmarkInboundController::class, 'handle']
 );
 

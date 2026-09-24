@@ -15,11 +15,21 @@ class PostmarkInboundTest extends TestCase {
 		parent::setUp();
 
 		Queue::fake();
+		config(['postmark.inbound_user' => 'inbound', 'postmark.inbound_password' => 'test-password-16']);
 	}
 
 	// =========================================================================
-	private function sendEmail(string $from, ?string $messageId = 'msg-1') {
-		return $this->postJson('/api/postmark/inbound', array_filter([
+	private function sendEmail(
+		string $from,
+		?string $messageId = 'msg-1',
+		?string $user = 'inbound',
+		?string $password = 'test-password-16',
+	) {
+		$headers = null === $user
+			? []
+			: ['Authorization' => 'Basic ' . base64_encode("{$user}:{$password}")];
+
+		return $this->withHeaders($headers)->postJson('/api/postmark/inbound', array_filter([
 			'FromFull' => ['Email' => $from],
 			'Subject' => 'Your booking confirmation',
 			'TextBody' => 'UA100 SFO to JFK',
@@ -67,5 +77,36 @@ class PostmarkInboundTest extends TestCase {
 
 		$this->assertSame(2, InboundEmail::count());
 		Queue::assertPushed(ParseConfirmationEmail::class, 2);
+	}
+
+	// =========================================================================
+	public function test_requests_without_credentials_are_rejected(): void {
+		User::factory()->create(['email' => 'pat@example.com']);
+
+		$response = $this->sendEmail('pat@example.com', user: null);
+
+		$response->assertStatus(401);
+		$response->assertHeader('WWW-Authenticate');
+		$this->assertSame(0, InboundEmail::count());
+		Queue::assertNothingPushed();
+	}
+
+	// =========================================================================
+	public function test_wrong_credentials_are_rejected(): void {
+		User::factory()->create(['email' => 'pat@example.com']);
+
+		$this->sendEmail('pat@example.com', password: 'wrong')->assertStatus(401);
+		$this->sendEmail('pat@example.com', user: 'someone')->assertStatus(401);
+
+		$this->assertSame(0, InboundEmail::count());
+	}
+
+	// =========================================================================
+	// With no password configured the endpoint stays closed.
+	public function test_everything_is_rejected_without_a_configured_password(): void {
+		config(['postmark.inbound_password' => null]);
+		User::factory()->create(['email' => 'pat@example.com']);
+
+		$this->sendEmail('pat@example.com', password: '')->assertStatus(401);
 	}
 }

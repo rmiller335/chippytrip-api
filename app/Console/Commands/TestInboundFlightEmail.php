@@ -117,6 +117,10 @@ class TestInboundFlightEmail extends Command {
 			$this->info("From:		 {$from}");
 
 			$response = Http::asJson()
+				->withBasicAuth(
+					(string) config('postmark.inbound_user'),
+					(string) config('postmark.inbound_password')
+				)
 				->timeout(30)
 				->post($url, $payload);
 
