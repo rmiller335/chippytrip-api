@@ -16,8 +16,11 @@ use Illuminate\Http\Request;
 class ListenerSyncController extends Controller {
 	// =========================================================================
 	public function index(Request $request) {
+		$cutoff = now()->subDays(config('sync.past_days'))->toDateString();
+
 		$listeners = $request->user()
 			->listeners()
+			->whereHas('watch.flight', fn ($q) => $q->where('departure_date', '>=', $cutoff))
 			->with([
 				'watch.flight.airline',
 				'watch.flight.origin',
