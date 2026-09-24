@@ -13,6 +13,7 @@ use App\Services\FlightWatchSvc;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 // =============================================================================
 class FlightSearchController extends Controller {
@@ -130,6 +131,12 @@ class FlightSearchController extends Controller {
 		$origin = strtoupper(trim($request->origin));
 		$destination = strtoupper(trim($request->destination));
 		$date = Carbon::parse($request->date);
+
+		if (empty(FlightWatchSvc::airlinesForIdent($ident))) {
+			throw ValidationException::withMessages([
+				'flight_number' => ['The flight number\'s airline code isn\'t recognised.'],
+			]);
+		}
 
 		Log::debug('FlightSearchController::watch: adding flight for notifications', [
 			'flight_number' => $ident,

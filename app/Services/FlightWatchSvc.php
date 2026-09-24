@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\EnableWatch;
+use App\Models\Airline;
 use App\Models\Flight;
 use App\Models\Listener;
 use App\Models\User;
@@ -83,9 +84,37 @@ class FlightWatchSvc {
 	}
 
 	// =========================================================================
+	// The airlines a flight number could belong to, each with the number
+	// without its airline code. Accepts ICAO (UAL100) or IATA (UA100, B6123)
+	// idents. Some IATA codes are shared by more than one airline in our
+	// table, so there can be several; empty means the code isn't known.
+	//
+	// @return list<array{Airline, string}>
+	public static function airlinesForIdent(string $ident): array {
+		$ident = strtoupper(trim($ident));
+
+		// ICAO codes are three letters; IATA codes are two characters and
+		// may include a digit (B6, 9E). A letter third means ICAO.
+		$isIcao = strlen($ident) > 3 && ctype_alpha(substr($ident, 0, 3));
+		$code = substr($ident, 0, $isIcao ? 3 : 2);
+		$number = substr($ident, $isIcao ? 3 : 2);
+
+		if (! preg_match('/^\d+[A-Z]?$/', $number)) {
+			return [];
+		}
+
+		return Airline::where($isIcao ? 'icao' : 'iata', $code)
+			->orderBy('icao')
+			->get()
+			->map(fn (Airline $airline) => [$airline, $number])
+			->all();
+	}
+
+	// =========================================================================
 	// Find the flight matching this ident/route/date, or create it from an
-	// AeroAPI schedule lookup. Returns null when AeroAPI has no matching
-	// scheduled flight.
+	// AeroAPI schedule lookup. Flights are stored under their IATA flight
+	// number (ICAO if the airline has no IATA code). Returns null when the
+	// airline isn't known or AeroAPI has no matching scheduled flight.
 	public function findOrCreateFlight(
 		string $ident,
 		string $originIcao,
@@ -93,43 +122,57 @@ class FlightWatchSvc {
 		string $date,
 		?string $departureLocal = null,
 	): ?Flight {
-		$flightRec = Flight::where('flight', $ident)
-			->where('origin_icao', $originIcao)
-			->where('destination_icao', $destinationIcao)
-			->whereDate('departure_date', $date)
-			->first()
-		;
+		$candidates = array_map(fn ($c) => [
+			'airline' =>	$c[0],
+			'number' =>		$c[1],
+			'flight' =>		($c[0]->iata ?: $c[0]->icao) . $c[1],
+		], self::airlinesForIdent($ident));
 
-		if (null != $flightRec) {
-			return $flightRec;
+		foreach ($candidates as $c) {
+			$flightRec = Flight::where('flight', $c['flight'])
+				->where('origin_icao', $originIcao)
+				->where('destination_icao', $destinationIcao)
+				->whereDate('departure_date', $date)
+				->first()
+			;
+
+			if (null != $flightRec) {
+				return $flightRec;
+			}
 		}
 
-		$flightRec = Flight::make([
-			'airline_icao' =>		Flight::icaoFromFlightNum($ident),
-			'departure_date' =>	$date,
-			'departure_dt' =>		$departureLocal,
-			'destination_icao' =>	$destinationIcao,
-			'flight_no' =>			substr($ident, 2),
-			'flight' =>				$ident,
-			'origin_icao' =>		$originIcao,
-		]);
+		foreach ($candidates as $c) {
+			$flightRec = Flight::make([
+				'airline_icao' =>		$c['airline']->icao,
+				'departure_date' =>	$date,
+				'departure_dt' =>		$departureLocal,
+				'destination_icao' =>	$destinationIcao,
+				'flight_no' =>			$c['number'],
+				'flight' =>				$c['flight'],
+				'origin_icao' =>		$originIcao,
+			]);
 
-		$info = $this->fa->flightSchedule($flightRec);
+			$info = $this->fa->flightSchedule($flightRec);
 
-		Log::debug('FlightAwareSvc::flightSchedule() returned:');
-		Log::debug(json_encode($info, JSON_PRETTY_PRINT));
+			Log::debug('FlightAwareSvc::flightSchedule() returned:');
+			Log::debug(json_encode($info, JSON_PRETTY_PRINT));
 
-		if (null == $info) {
+			if (null != $info) {
+				break;
+			}
+		}
+
+		if (empty($info)) {
 			return null;
 		}
 
 		$flightRec->departure_dt =		new Carbon($info->scheduled_out);
 		$flightRec->arrival_dt =		new Carbon($info->scheduled_in);
-		$flightRec->equipment =		$info->aircraft_type;
-		$flightRec->meal_service =		$info->meal_service;
-		$flightRec->first_seats =		$info->seats_cabin_first;
-		$flightRec->business_seats =	$info->seats_cabin_business;
-		$flightRec->coach_seats =		$info->seats_cabin_coach;
+		$flightRec->equipment =		$info->aircraft_type ?? null;
+		$flightRec->meal_service =		$info->meal_service ?? null;
+		$flightRec->first_seats =		$info->seats_cabin_first ?? null;
+		$flightRec->business_seats =	$info->seats_cabin_business ?? null;
+		$flightRec->coach_seats =		$info->seats_cabin_coach ?? null;
 
 		$flightRec->save();
 

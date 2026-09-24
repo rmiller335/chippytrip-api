@@ -62,14 +62,6 @@ class Flight extends Model implements Auditable {
 	}
 
 	// =========================================================================
-	public static function icaoFromFlightNum(string $flightNo): string {
-		$iata = substr($flightNo, 0, 2);
-		$airline = Airline::where('iata', $iata)->first();
-
-		return $airline->icao;
-	}
-
-	// =========================================================================
 	public function origin(): HasOne {
 		return $this->hasOne(Airport::class, 'icao', 'origin_icao');
 	}

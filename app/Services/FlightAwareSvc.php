@@ -182,7 +182,9 @@ class FlightAwareSvc {
 
 		if(isset($data['scheduled'])) {
 			foreach($data['scheduled'] as $entry) {
-				if($entry['ident_iata'] == $flight->flight) {
+				if(($entry['ident_iata'] ?? null) == $flight->flight
+					|| ($entry['ident_icao'] ?? null) == $flight->airline_icao . $flight->flight_no
+				) {
 					return arrayToObject($entry);
 				}
 			}

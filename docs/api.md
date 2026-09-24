@@ -311,7 +311,7 @@ result from [flight lookup](#look-up-a-flight-number) or
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `flight_number` | string | yes | IATA flight number, e.g. `UA100`. It must start with a two-character airline code the server knows. |
+| `flight_number` | string | yes | IATA (`UA100`) or ICAO (`UAL100`). The airline code must be one the server knows. |
 | `origin` | string | yes | Origin airport ICAO code, e.g. `KSFO`. |
 | `destination` | string | yes | Destination airport ICAO code. |
 | `date` | date | yes | Local departure date, `YYYY-MM-DD`, today or later. |
@@ -341,13 +341,15 @@ The objects have the same shape as in the [sync](#sync).
 |---|---|
 | `200 OK` | Watching. Also returned if the user was already watching; nothing is duplicated. |
 | `404` | `{"message": "No matching scheduled flight found."}`: FlightAware has no such flight on that date and route. |
-| `422` | A field is missing or the date is in the past. |
-| `502` | FlightAware can't be reached. **Also returned when the airline code in `flight_number` isn't recognised**, a known bug. |
+| `422` | A field is missing, the date is in the past, or the airline code in `flight_number` isn't recognised (`errors.flight_number`). |
+| `502` | FlightAware can't be reached. |
 
 Effects:
 
 - Flights are shared. If anyone already watches the same flight, the
-  user joins that watch instead of creating a new one.
+  user joins that watch instead of creating a new one. Flights are stored
+  under their IATA flight number, so `UAL100` and `UA100` are the same
+  flight.
 - Family members marked `auto_add` also start getting this flight's
   notifications. See [family members](#replace-family-members).
 - Notifications start once the flight is within its alert window, from the

@@ -301,4 +301,89 @@ class FlightSearchControllerTest extends TestCase {
 		$response->assertStatus(200);
 		$response->assertJsonPath('0.origin_name', 'London Heathrow');
 	}
+
+	// =========================================================================
+	private function watchRequest(string $flightNumber) {
+		return $this->actingAs(User::factory()->create(), 'sanctum')
+			->postJson('/api/watches', [
+				'flight_number' => $flightNumber,
+				'origin' => 'EGLL',
+				'destination' => 'KJFK',
+				'date' => Carbon::now()->addDays(10)->toDateString(),
+			]);
+	}
+
+	// =========================================================================
+	// Used to be a 502 "Could not reach FlightAware." without calling it.
+	public function test_watch_rejects_an_unknown_airline_code(): void {
+		Http::fake();
+
+		$response = $this->watchRequest('ZZ100');
+
+		$response->assertStatus(422);
+		$response->assertJsonValidationErrors('flight_number');
+		Http::assertNothingSent();
+	}
+
+	// =========================================================================
+	public function test_watch_accepts_an_icao_flight_number(): void {
+		$this->fakeSchedule();
+
+		$this->watchRequest('VIR3')->assertStatus(200)->assertJsonPath('flight.flight', 'VS3');
+
+		Http::assertSent(fn ($request) => str_contains($request->url(), 'airline=VIR')
+			&& str_contains($request->url(), 'flight_number=3'));
+	}
+
+	// =========================================================================
+	public function test_watch_finds_an_existing_flight_by_icao_flight_number(): void {
+		$flight = Flight::create([
+			'airline_icao' => 'VIR', 'flight' => 'VS3', 'flight_no' => '3',
+			'origin_icao' => 'EGLL', 'destination_icao' => 'KJFK',
+			'departure_date' => Carbon::now()->addDays(10)->toDateString(),
+		]);
+
+		$this->watchRequest('VIR3')->assertStatus(200)->assertJsonPath('flight.id', $flight->id);
+	}
+
+	// =========================================================================
+	// Two airlines share the IATA code; FlightAware decides which it is.
+	public function test_watch_tries_each_airline_sharing_an_iata_code(): void {
+		Airline::create([
+			'icao' => 'AAA', 'iata' => 'VS', 'call_sign' => 'OTHER', 'name' => 'Another VS',
+			'country_code' => 'GB', 'status' => 'active', 'types' => ['M'],
+		]);
+
+		Http::fake(function ($request) {
+			$isVirgin = str_contains($request->url(), 'airline=VIR');
+
+			return Http::response(['scheduled' => $isVirgin ? [[
+				'ident_iata' => 'VS3',
+				'scheduled_out' => '2026-07-01T14:00:00Z',
+				'scheduled_in' => '2026-07-01T22:00:00Z',
+			]] : []], 200);
+		});
+
+		$response = $this->watchRequest('VS3');
+
+		$response->assertStatus(200);
+		$response->assertJsonPath('flight.airline_icao', 'VIR');
+		Http::assertSentCount(2);
+	}
+
+	// =========================================================================
+	public function test_airlines_for_ident(): void {
+		$parse = fn ($ident) => array_map(
+			fn ($c) => [$c[0]->icao, $c[1]],
+			\App\Services\FlightWatchSvc::airlinesForIdent($ident)
+		);
+
+		$this->assertSame([['VIR', '3']], $parse('VS3'));
+		$this->assertSame([['VIR', '3']], $parse('vir3'));
+		$this->assertSame([['VIR', '3']], $parse(' VS3 '));
+		$this->assertSame([['VIR', '12A']], $parse('VS12A'));
+		$this->assertSame([], $parse('ZZ100'));
+		$this->assertSame([], $parse('VS'));
+		$this->assertSame([], $parse('VSXYZ'));
+	}
 }
