@@ -4,7 +4,10 @@ namespace App\Providers;
 
 use App\Services\EmailBodyExtractor;
 use App\Services\MailparseEmailBodyExtractor;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Kreait\Firebase\Contract\Messaging;
 use Kreait\Firebase\Factory;
@@ -38,5 +41,17 @@ class AppServiceProvider extends ServiceProvider {
 			'user' =>			\App\Models\User::class,
 			'watch' =>			\App\Models\Watch::class,
 		]);
+
+		// POST /api/sanctum/token. See config/auth.php.
+		RateLimiter::for('login', function (Request $request) {
+			$email = strtolower((string) $request->input('email'));
+
+			return [
+				Limit::perMinute(config('auth.login_rate_limit.per_email'))
+					->by('email:' . $email . '|' . $request->ip()),
+				Limit::perMinute(config('auth.login_rate_limit.per_ip'))
+					->by('ip:' . $request->ip()),
+			];
+		});
 	}
 }

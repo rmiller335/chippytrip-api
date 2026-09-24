@@ -332,7 +332,7 @@ CREATE TABLE `personal_access_tokens` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `tokenable_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `tokenable_id` bigint unsigned NOT NULL,
-  `name` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `token` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
   `abilities` text COLLATE utf8mb4_unicode_ci,
   `last_used_at` timestamp NULL DEFAULT NULL,
@@ -341,6 +341,7 @@ CREATE TABLE `personal_access_tokens` (
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `personal_access_tokens_token_unique` (`token`),
+  UNIQUE KEY `personal_access_tokens_device_unique` (`tokenable_type`,`tokenable_id`,`name`),
   KEY `personal_access_tokens_tokenable_type_tokenable_id_index` (`tokenable_type`,`tokenable_id`),
   KEY `personal_access_tokens_expires_at_index` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -554,3 +555,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (59,'2026_09_23_150
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (60,'2026_09_23_150001_add_sessions_user_id_foreign',11);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (61,'2026_09_23_160000_add_name_to_family_members',12);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (62,'2026_09_24_120000_add_watch_id_to_watch_callbacks',13);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (64,'2026_09_24_170000_unique_token_per_device',14);

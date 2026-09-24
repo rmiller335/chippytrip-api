@@ -3,8 +3,8 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// Get an auth token
-Route::post('/sanctum/token', [
+// Get an auth token. Rate limited; see config/auth.php.
+Route::middleware('throttle:login')->post('/sanctum/token', [
 	App\Http\Controllers\Authorizer::class, 'genToken'
 ]);
 

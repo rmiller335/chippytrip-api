@@ -114,4 +114,20 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sign-in Rate Limits
+    |--------------------------------------------------------------------------
+    |
+    | Attempts per minute at POST /api/sanctum/token, successful or not: per
+    | email address from one IP, and in total from one IP. Over either limit
+    | the endpoint returns 429 with a Retry-After header.
+    |
+    */
+
+    'login_rate_limit' => [
+        'per_email' => (int) env('LOGIN_RATE_LIMIT', 5),
+        'per_ip' => (int) env('LOGIN_RATE_LIMIT_PER_IP', 20),
+    ],
+
 ];

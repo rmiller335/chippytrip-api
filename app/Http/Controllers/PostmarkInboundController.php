@@ -28,19 +28,31 @@ class PostmarkInboundController extends Controller {
 			[$fromAddress]
 		)->first();
 
-		$email = InboundEmail::firstOrCreate( [
-				'message_id' => $data['MessageID'] ?? null,
-			], [
-				'user_id'	   => $user?->id,
-				'from_address' => $fromAddress,
-				'subject'	   => $data['Subject'] ?? null,
-				'text_body'    => $data['TextBody'] ?? null,
-				'html_body'    => $data['HtmlBody'] ?? null,
-				'status'	   => $user ? 'pending' : 'unknown_sender',
-			]
-		);
+		// Only registered users' emails are kept and parsed. Anything else is
+		// dropped, but still gets a 200 so Postmark doesn't retry it.
+		if (null === $user) {
+			Log::info('PostmarkInboundController: discarded email from unknown sender', [
+				'from' => $fromAddress,
+			]);
 
-		if($user) {
+			return response('OK', 200);
+		}
+
+		$fields = [
+			'user_id'	   => $user->id,
+			'from_address' => $fromAddress,
+			'subject'	   => $data['Subject'] ?? null,
+			'text_body'    => $data['TextBody'] ?? null,
+			'html_body'    => $data['HtmlBody'] ?? null,
+			'status'	   => 'pending',
+		];
+
+		// A Postmark retry repeats the MessageID; store and parse it once.
+		$email = empty($data['MessageID'])
+			? InboundEmail::create($fields)
+			: InboundEmail::firstOrCreate(['message_id' => $data['MessageID']], $fields);
+
+		if ($email->wasRecentlyCreated) {
 			ParseConfirmationEmail::dispatch($email->id);
 		}
 

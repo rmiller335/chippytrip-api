@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -18,7 +19,7 @@ class Authorizer extends Controller {
 		$request->validate([
 			'email' => 'required|email',
 			'password' => 'required',
-			'device_name' => 'required',
+			'device_name' => 'required|string|max:255',
 		]);
 
 		$user = User::where('email', $request->email)->first();
@@ -29,6 +30,12 @@ class Authorizer extends Controller {
 			]);
 		}
 
-		return $user->createToken($request->device_name)->plainTextToken;
+		// One token per device (device_name is the app's device ID):
+		// signing in again replaces that device's token.
+		return DB::transaction(function () use ($user, $request) {
+			$user->tokens()->where('name', $request->device_name)->delete();
+
+			return $user->createToken($request->device_name)->plainTextToken;
+		});
 	}
 }
