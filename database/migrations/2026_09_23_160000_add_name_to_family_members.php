@@ -15,9 +15,11 @@ return new class extends Migration {
 			$table->string('name')->nullable()->after('family_member_id');
         });
 
-		DB::table('family_members')
-			->join('users', 'users.id', '=', 'family_members.family_member_id')
-			->update(['family_members.name' => DB::raw('users.name')]);
+		// Correlated subquery rather than update…join: Laravel's SQLite
+		// grammar can't reference the joined table in the SET clause.
+		DB::table('family_members')->update([
+			'name' => DB::raw('(select name from users where users.id = family_members.family_member_id)'),
+		]);
 
         Schema::table('family_members', function (Blueprint $table) {
 			$table->string('name')->nullable(false)->change();

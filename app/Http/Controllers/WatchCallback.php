@@ -28,16 +28,7 @@ class WatchCallback extends Controller {
 
 		$wc->save();
 
-		// departure_date is a local calendar date (from the user's search or
-		// confirmation email), but scheduled_out is always UTC — comparing
-		// them directly breaks for late-night departures where the UTC date
-		// has already rolled over relative to the origin airport's local
-		// date. Convert scheduled_out into the origin's local timezone
-		// before comparing calendar dates.
-		$originTz = $watch->flight->origin->timezone ?? 'UTC';
-		$localScheduledOut = $wc->scheduled_out->copy()->setTimezone($originTz);
-
-		if($watch->flight->departure_date->toDateString() === $localScheduledOut->toDateString()) {
+		if($wc->matchesFlightDate($watch->flight)) {
 			foreach($wc->watch->listeners as $listener) {
 				Bus::chain([
 					new SendNotification($wc, $listener->user),

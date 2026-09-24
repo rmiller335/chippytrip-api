@@ -92,4 +92,42 @@ class WatchCallbackTest extends TestCase {
 		$this->assertSame(1, WatchCallback::forEvent('arrival')->count());
 		$this->assertSame(2, WatchCallback::forIdent('UA100')->count());
 	}
+
+	// =========================================================================
+	public function test_matches_flight_date_when_scheduled_out_is_on_departure_date(): void {
+		$flight = $this->makeFlight(['departure_date' => '2026-07-01']);
+		$wc = WatchCallback::fromApiPayload($this->payload());
+
+		$this->assertTrue($wc->matchesFlightDate($flight));
+	}
+
+	// =========================================================================
+	// A daily flight's alert also fires for the previous day's operation.
+	public function test_does_not_match_flight_date_for_previous_days_flight(): void {
+		$flight = $this->makeFlight(['departure_date' => '2026-07-02']);
+		$wc = WatchCallback::fromApiPayload($this->payload());
+
+		$this->assertFalse($wc->matchesFlightDate($flight));
+	}
+
+	// =========================================================================
+	// 03:30Z on Jul 2 is 20:30 on Jul 1 in San Francisco.
+	public function test_matches_flight_date_using_origin_local_time(): void {
+		$flight = $this->makeFlight(['departure_date' => '2026-07-01']);
+		$wc = WatchCallback::fromApiPayload($this->payload([
+			'flight' => array_merge($this->payload()['flight'], ['scheduled_out' => '2026-07-02T03:30:00Z']),
+		]));
+
+		$this->assertTrue($wc->matchesFlightDate($flight));
+	}
+
+	// =========================================================================
+	public function test_does_not_match_flight_date_without_scheduled_out(): void {
+		$flight = $this->makeFlight(['departure_date' => '2026-07-01']);
+		$wc = WatchCallback::fromApiPayload($this->payload([
+			'flight' => array_merge($this->payload()['flight'], ['scheduled_out' => null]),
+		]));
+
+		$this->assertFalse($wc->matchesFlightDate($flight));
+	}
 }

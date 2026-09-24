@@ -33,9 +33,10 @@ class ListenerSyncController extends Controller {
 			->merge($flights->pluck('destination'))
 			->filter()
 			->unique('icao');
-		$watch_callbacks = $watches->flatMap(fn ($watch) => $watch->callbacks->each(
-				fn ($callback) => $callback->flight_id = $watch->flight_id
-			))
+		$watch_callbacks = $watches->flatMap(fn ($watch) => $watch->callbacks
+				->filter(fn ($callback) => $callback->matchesFlightDate($watch->flight))
+				->each(fn ($callback) => $callback->flight_id = $watch->flight_id)
+			)
 			->filter()
 			->unique('id');
 

@@ -261,6 +261,29 @@ class WatchCallback extends Model {
 		return null;
 	}
 
+	// =========================================================================
+	// FA alerts cover a date range, so a watch on a daily flight also receives
+	// callbacks for the same ident on neighbouring days. A callback belongs to
+	// the flight only when its scheduled_out falls on the flight's
+	// departure_date.
+	//
+	// departure_date is a local calendar date (from the user's search or
+	// confirmation email), but scheduled_out is always UTC — comparing them
+	// directly breaks for late-night departures where the UTC date has
+	// already rolled over relative to the origin airport's local date.
+	// Convert scheduled_out into the origin's local timezone before comparing
+	// calendar dates.
+	public function matchesFlightDate(Flight $flight): bool {
+		if ($this->scheduled_out === null) {
+			return false;
+		}
+
+		$originTz = $flight->origin->timezone ?? 'UTC';
+		$localScheduledOut = $this->scheduled_out->copy()->setTimezone($originTz);
+
+		return $flight->departure_date->toDateString() === $localScheduledOut->toDateString();
+	}
+
 	// -------------------------------------------------------------------------
 	// Relationships
 	// -------------------------------------------------------------------------

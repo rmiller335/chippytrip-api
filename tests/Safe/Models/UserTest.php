@@ -15,12 +15,14 @@ class UserTest extends TestCase {
 		UserChannel::create([
 			'user_id' => $user->id,
 			'channel' => 'mail',
+			'identifier' => 'user@example.com',
 			'credentials' => [],
 		]);
 
 		UserChannel::create([
 			'user_id' => $user->id,
 			'channel' => 'fcm',
+			'identifier' => 'device-token',
 			'credentials' => ['key' => 'x'],
 		]);
 
