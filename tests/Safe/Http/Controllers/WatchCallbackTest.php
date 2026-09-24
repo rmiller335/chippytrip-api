@@ -6,8 +6,12 @@ use App\Jobs\NotificationsIndex;
 use App\Jobs\SendNotification;
 use App\Models\User;
 use App\Models\Watch;
+use App\Models\WatchCallback;
+use App\Notifications\Arrival;
+use App\Notifications\Departure;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Notification;
 use Tests\Safe\TestCase;
 
 // =============================================================================
@@ -97,5 +101,127 @@ class WatchCallbackTest extends TestCase {
 
 		$response->assertStatus(403);
 		$this->assertDatabaseCount('watch_callbacks', 0);
+	}
+
+	// -------------------------------------------------------------------------
+	// End to end: callback -> SendNotification -> user notified. The queue
+	// runs synchronously, so only the final delivery is faked.
+	// -------------------------------------------------------------------------
+
+	// =========================================================================
+	// A watched SFO departure on 2026-07-01 with two listening users, plus a
+	// user who isn't listening.
+	private function watchWithListeners(): array {
+		$flight = $this->makeFlight(['departure_date' => '2026-07-01']);
+		$watch = Watch::create([
+			'flight_id' => $flight->id,
+			'subscription_id' => 'SUB123',
+			'secret' => 'topsecret',
+			'enabled' => true,
+		]);
+
+		$listeners = User::factory()->count(2)->create();
+		foreach ($listeners as $user) {
+			$user->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
+		}
+
+		return [$listeners, User::factory()->create()];
+	}
+
+	// =========================================================================
+	private function postCallback(string $eventCode, ?string $scheduledOut) {
+		return $this->postJson('/api/watch-callback?s=topsecret', [
+			'alert_id' => 'SUB123',
+			'event_code' => $eventCode,
+			'summary' => "UA100 $eventCode",
+			'flight' => [
+				'fa_flight_id' => 'FA123',
+				'ident' => 'UA100',
+				'scheduled_out' => $scheduledOut,
+			],
+		]);
+	}
+
+	// =========================================================================
+	public function test_matching_callback_notifies_every_listener_and_no_one_else(): void {
+		Notification::fake();
+		[$listeners, $bystander] = $this->watchWithListeners();
+
+		$this->postCallback('departure', '2026-07-01T16:00:00Z')->assertStatus(200);
+
+		foreach ($listeners as $user) {
+			Notification::assertSentToTimes($user, Departure::class, 1);
+		}
+		Notification::assertNotSentTo($bystander, Departure::class);
+	}
+
+	// =========================================================================
+	public function test_event_code_selects_the_notification_class(): void {
+		Notification::fake();
+		[$listeners] = $this->watchWithListeners();
+
+		$this->postCallback('arrival', '2026-07-01T16:00:00Z')->assertStatus(200);
+
+		Notification::assertSentTo($listeners[0], Arrival::class);
+		Notification::assertNotSentTo($listeners[0], Departure::class);
+	}
+
+	// =========================================================================
+	// The FA alert spans several days, so a daily flight's watch also gets
+	// the previous day's callbacks (the QR701 case). They're stored but
+	// mustn't notify anyone.
+	public function test_previous_days_flight_is_stored_but_not_notified(): void {
+		Notification::fake();
+		$this->watchWithListeners();
+
+		$this->postCallback('arrival', '2026-06-30T16:00:00Z')->assertStatus(200);
+
+		$this->assertDatabaseHas('watch_callbacks', ['alert_id' => 'SUB123', 'event_code' => 'arrival']);
+		Notification::assertNothingSent();
+	}
+
+	// =========================================================================
+	public function test_next_days_flight_is_not_notified(): void {
+		Notification::fake();
+		$this->watchWithListeners();
+
+		$this->postCallback('filed', '2026-07-02T16:00:00Z')->assertStatus(200);
+
+		Notification::assertNothingSent();
+	}
+
+	// =========================================================================
+	// 03:30Z on Jul 2 is 20:30 on Jul 1 in San Francisco -- the UTC date has
+	// rolled over but it's still the watched flight.
+	public function test_late_night_departure_matches_on_origin_local_date(): void {
+		Notification::fake();
+		[$listeners] = $this->watchWithListeners();
+
+		$this->postCallback('departure', '2026-07-02T03:30:00Z')->assertStatus(200);
+
+		Notification::assertSentTo($listeners[0], Departure::class);
+	}
+
+	// =========================================================================
+	// 03:30Z on Jul 1 is 20:30 on Jun 30 in San Francisco -- same UTC date as
+	// the flight, but the previous day's departure.
+	public function test_same_utc_date_but_previous_local_date_is_not_notified(): void {
+		Notification::fake();
+		$this->watchWithListeners();
+
+		$this->postCallback('departure', '2026-07-01T03:30:00Z')->assertStatus(200);
+
+		Notification::assertNothingSent();
+	}
+
+	// =========================================================================
+	public function test_callback_without_scheduled_out_is_stored_but_not_notified(): void {
+		Notification::fake();
+		$this->watchWithListeners();
+
+		$this->postCallback('departure', null)->assertStatus(200);
+
+		$this->assertSame(1, WatchCallback::count());
+		Notification::assertNothingSent();
 	}
 }
