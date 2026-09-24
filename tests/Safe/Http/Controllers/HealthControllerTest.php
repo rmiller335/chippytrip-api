@@ -82,27 +82,21 @@ class HealthControllerTest extends TestCase {
 	}
 
 	// =========================================================================
-	public function test_details_are_hidden_without_the_token(): void {
+	public function test_returns_404_without_the_token(): void {
 		$this->fakeExternals();
 
-		$response = $this->getHealth(withToken: false);
+		$this->getHealth(withToken: false)->assertStatus(404);
+		$this->getJson('/health', ['X-Health-Token' => 'wrong'])->assertStatus(404);
 
-		$response->assertStatus(200);
-		$response->assertExactJson([
-			'status' => 'ok',
-			'checked_at' => $response->json('checked_at'),
-			'checks' => collect($response->json('checks'))->map(fn () => ['status' => 'ok'])->all(),
-		]);
+		Http::assertNothingSent();
 	}
 
 	// =========================================================================
-	public function test_details_are_hidden_when_no_token_is_configured(): void {
+	public function test_returns_404_when_no_token_is_configured(): void {
 		config(['health.token' => null]);
 		$this->fakeExternals();
 
-		$response = $this->getJson('/health', ['X-Health-Token' => '']);
-
-		$response->assertJsonMissingPath('checks.database.message');
+		$this->getJson('/health', ['X-Health-Token' => ''])->assertStatus(404);
 	}
 
 	// =========================================================================

@@ -1,8 +1,8 @@
 <?php
 
 return [
-	// Sent as the X-Health-Token header to see each check's message and
-	// details. Without it, /health only reports statuses. Empty = never.
+	// Must be sent as the X-Health-Token header; /health returns 404
+	// without it. If empty, /health always returns 404.
 	'token' => env('HEALTH_TOKEN'),
 
 	// How long a passing external API check is cached, so frequent polling

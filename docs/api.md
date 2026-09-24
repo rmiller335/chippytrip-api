@@ -68,7 +68,12 @@ GET /health
 ```
 
 Checks everything the API depends on. It's meant for uptime monitors, not
-the app. No authentication.
+the app. Send the `HEALTH_TOKEN` value as the `X-Health-Token` header:
+
+```
+GET /health HTTP/1.1
+X-Health-Token: <HEALTH_TOKEN>
+```
 
 ### Responses
 
@@ -77,6 +82,7 @@ the app. No authentication.
 | `200 OK` | `ok` | Every check passed. |
 | `200 OK` | `degraded` | Something needs attention, but the API works: a non-critical check failed, or a check warned. |
 | `503 Service Unavailable` | `down` | A critical check failed. |
+| `404 Not Found` | — | The token is missing or wrong, or `HEALTH_TOKEN` isn't set. No checks run. |
 
 Alert on `503`. `degraded` is worth a look but shouldn't page anyone.
 
@@ -101,16 +107,9 @@ cached for `HEALTH_EXTERNAL_TTL` seconds and a failure for 60 seconds, so
 frequent polling doesn't add API usage. Those results include
 `"cached": true`.
 
-### Details
+### Example response
 
-By default each check only shows its `status`. Send the `HEALTH_TOKEN`
-value as `X-Health-Token` to also get each check's `message`, timing (`ms`)
-and details:
-
-```
-GET /health HTTP/1.1
-X-Health-Token: <HEALTH_TOKEN>
-```
+Each check has a `status`, a `message`, its timing (`ms`) and any details:
 
 ```json
 {

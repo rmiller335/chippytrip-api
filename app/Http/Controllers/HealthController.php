@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 // =============================================================================
 // GET /health — 200 when everything critical works, 503 when anything
-// critical fails. See docs/api.md.
+// critical fails, 404 without a valid X-Health-Token. See docs/api.md.
 class HealthController extends Controller {
 	// Check name => [HealthCheckSvc method, critical, external]. A failed
 	// non-critical check makes the status "degraded", not "down". External
@@ -31,6 +31,9 @@ class HealthController extends Controller {
 
 	// =========================================================================
 	public function __invoke(Request $request, HealthCheckSvc $svc): JsonResponse {
+		// 404 rather than 401 so the endpoint doesn't advertise itself.
+		abort_unless($this->authorized($request), 404);
+
 		$checks = [];
 
 		foreach (self::CHECKS as $name => [$method, $critical, $external]) {
@@ -56,10 +59,6 @@ class HealthController extends Controller {
 			Log::warning("HealthController: status {$status}", array_filter(
 				$checks, fn ($c) => $c['status'] !== HealthCheckSvc::OK
 			));
-		}
-
-		if (! $this->showDetails($request)) {
-			$checks = array_map(fn ($c) => ['status' => $c['status']], $checks);
 		}
 
 		return response()->json([
@@ -117,7 +116,7 @@ class HealthController extends Controller {
 	}
 
 	// =========================================================================
-	private function showDetails(Request $request): bool {
+	private function authorized(Request $request): bool {
 		$token = config('health.token');
 
 		return ! empty($token)
