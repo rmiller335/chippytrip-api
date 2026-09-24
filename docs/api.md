@@ -3,6 +3,10 @@
 All endpoints are under `/api`. Authenticated endpoints need a Sanctum token
 (`Authorization: Bearer <token>`) and `Accept: application/json`.
 
+Every response, errors included, is JSON whatever the `Accept` header says.
+A missing or invalid token gets `401 {"message": "Unauthenticated."}`, not a
+redirect. There are no routes outside `/api` except `/health`.
+
 ## Stop watching a flight
 
 ```
