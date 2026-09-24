@@ -26,6 +26,7 @@ class WatchCallback extends Controller {
 			return response('Invalid POST request', 403);
 		}
 
+		$wc->watch_id = $watch->id;
 		$wc->save();
 
 		if($wc->matchesFlightDate($watch->flight)) {

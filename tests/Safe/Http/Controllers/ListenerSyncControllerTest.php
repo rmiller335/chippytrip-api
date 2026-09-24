@@ -10,7 +10,7 @@ use Tests\Safe\TestCase;
 // =============================================================================
 class ListenerSyncControllerTest extends TestCase {
 	// =========================================================================
-	private function makeCallback(string $faFlightId, string $eventCode, string $scheduledOut): WatchCallback {
+	private function makeCallback(Watch $watch, string $faFlightId, string $eventCode, string $scheduledOut): WatchCallback {
 		$wc = WatchCallback::fromApiPayload([
 			'alert_id' => 'SUB123',
 			'event_code' => $eventCode,
@@ -20,6 +20,7 @@ class ListenerSyncControllerTest extends TestCase {
 				'scheduled_out' => $scheduledOut,
 			],
 		]);
+		$wc->watch_id = $watch->id;
 		$wc->save();
 
 		return $wc;
@@ -39,8 +40,8 @@ class ListenerSyncControllerTest extends TestCase {
 		$user = User::factory()->create();
 		$user->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
 
-		$yesterday = $this->makeCallback('FA-JUL01', 'arrival', '2026-07-01T16:00:00Z');
-		$today = $this->makeCallback('FA-JUL02', 'departure', '2026-07-02T16:00:00Z');
+		$yesterday = $this->makeCallback($watch, 'FA-JUL01', 'arrival', '2026-07-01T16:00:00Z');
+		$today = $this->makeCallback($watch, 'FA-JUL02', 'departure', '2026-07-02T16:00:00Z');
 
 		$response = $this->actingAs($user, 'sanctum')->getJson('/api/sync/listeners');
 

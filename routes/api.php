@@ -47,6 +47,12 @@ Route::middleware('auth:sanctum')->post('/watches', [
 	App\Http\Controllers\FlightSearchController::class, 'watch'
 ]);
 
+// Stop watching a flight. The watch and flight are deleted once no one is
+// listening.
+Route::middleware('auth:sanctum')->delete('/flights/{flight}', [
+	App\Http\Controllers\FlightSearchController::class, 'unwatch'
+]);
+
 // Type-ahead suggestions for the "Add flight" modal.
 Route::middleware('auth:sanctum')->get('/airports/search', [
 	App\Http\Controllers\AirportController::class, 'search'

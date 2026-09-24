@@ -4,9 +4,11 @@ namespace App\Console\Commands;
 
 use App\Jobs\DisableWatch;
 use App\Jobs\EnableWatch;
+use App\Models\EmailRelatedRecord;
 use App\Models\Flight;
 use App\Models\Listener;
 use App\Models\Watch;
+use App\Models\WatchCallback;
 use App\Services\FlightAwareSvc;
 use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
@@ -68,6 +70,7 @@ class MaintenanceNightly extends Command {
 		DB::transaction(function() use($fa){
 			$this->disableOld();
 			$this->enableNew();
+			$this->pruneUnwatched();
 			$this->pruneAlerts($fa);
 		});
     }
@@ -83,5 +86,30 @@ class MaintenanceNightly extends Command {
 				$fa->watchDelete($alert->id);
 			}
 		}
+	}
+
+	// =========================================================================
+	// Delete watches no one listens to any more (see
+	// FlightWatchSvc::removeListener()) and flights left without a watch.
+	// Callbacks and watches_notifications rows cascade with the watch; the
+	// watch's FlightAware alert no longer matches a watch, so pruneAlerts()
+	// deletes it.
+	//
+	// Each delete re-checks its condition in the same statement, so a
+	// listener or watch added since the last run keeps its rows.
+	protected function pruneUnwatched() {
+		Watch::whereDoesntHave('listeners')->delete();
+
+		$unwatched = Flight::whereDoesntHave('watch');
+
+		EmailRelatedRecord::where('record_type', Flight::class)
+			->whereIn('record_id', (clone $unwatched)->select('id'))
+			->delete()
+		;
+		$unwatched->delete();
+
+		// Callbacks from before watch_id existed that couldn't be matched to
+		// a watch.
+		WatchCallback::whereNull('watch_id')->delete();
 	}
 }

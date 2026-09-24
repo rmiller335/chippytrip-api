@@ -4,8 +4,12 @@ namespace Tests\Safe\Console\Commands;
 
 use App\Jobs\DisableWatch;
 use App\Jobs\EnableWatch;
+use App\Models\EmailRelatedRecord;
+use App\Models\Flight;
+use App\Models\InboundEmail;
 use App\Models\User;
 use App\Models\Watch;
+use App\Models\WatchCallback;
 use App\Services\FlightAwareSvc;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Bus;
@@ -91,11 +95,13 @@ class MaintenanceNightlyTest extends TestCase {
 		Bus::fake();
 
 		$flight = $this->makeFlight(['flight' => 'UA300']);
-		Watch::create([
+		$watch = Watch::create([
 			'flight_id' => $flight->id,
 			'subscription_id' => 'SUB-KNOWN',
 			'enabled' => false,
 		]);
+		// A listener, so pruneUnwatched() keeps the watch.
+		User::factory()->create()->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
 
 		// FlightAware's alert list is eventually consistent, so a newly created
 		// or deleted alert may not be reflected in watchList() right away.
@@ -110,5 +116,109 @@ class MaintenanceNightlyTest extends TestCase {
 		$this->app->instance(FlightAwareSvc::class, $fa);
 
 		$this->artisan('maintenance:nightly')->assertExitCode(0);
+	}
+
+	// =========================================================================
+	private function makeCallback(?Watch $watch): WatchCallback {
+		$wc = WatchCallback::fromApiPayload([
+			'alert_id' => $watch?->subscription_id ?? 'SUB-LOST',
+			'event_code' => 'departure',
+			'flight' => ['fa_flight_id' => 'FA123', 'ident' => 'UA100'],
+		]);
+		$wc->watch_id = $watch?->id;
+		$wc->save();
+
+		return $wc;
+	}
+
+	// =========================================================================
+	private function mockFlightAware(array $alertIds, array $expectDeleted): void {
+		$fa = \Mockery::mock(FlightAwareSvc::class);
+		$fa->shouldReceive('watchList')->once()
+			->andReturn(array_map(fn ($id) => (object) ['id' => $id], $alertIds));
+
+		if (empty($expectDeleted)) {
+			$fa->shouldNotReceive('watchDelete');
+		}
+		foreach ($expectDeleted as $id) {
+			$fa->shouldReceive('watchDelete')->once()->with($id);
+		}
+
+		$this->app->instance(FlightAwareSvc::class, $fa);
+	}
+
+	// =========================================================================
+	// Once the last listener is removed (DELETE /flights/{flight}), the next
+	// run deletes the watch, its flight, callbacks, email links and alert.
+	public function test_prunes_unlistened_watch_with_its_flight_callbacks_and_alert(): void {
+		Bus::fake();
+
+		$flight = $this->makeFlight();
+		$watch = Watch::create([
+			'flight_id' => $flight->id,
+			'subscription_id' => 'SUB-GONE',
+			'enabled' => true,
+		]);
+		$callback = $this->makeCallback($watch);
+
+		$user = User::factory()->create();
+		$email = InboundEmail::create([
+			'user_id' => $user->id,
+			'message_id' => 'msg-1',
+			'from_address' => $user->email,
+			'subject' => 'Your booking',
+			'status' => 'processed',
+		]);
+		EmailRelatedRecord::create([
+			'inbound_email_id' => $email->id,
+			'record_type' => Flight::class,
+			'record_id' => $flight->id,
+		]);
+
+		$this->mockFlightAware(['SUB-GONE'], ['SUB-GONE']);
+
+		$this->artisan('maintenance:nightly')->assertExitCode(0);
+
+		$this->assertModelMissing($watch);
+		$this->assertModelMissing($flight);
+		$this->assertModelMissing($callback);
+		$this->assertDatabaseCount('email_related_records', 0);
+		$this->assertModelExists($email);
+	}
+
+	// =========================================================================
+	public function test_keeps_listened_watch_with_its_flight_and_callbacks(): void {
+		Bus::fake();
+
+		$flight = $this->makeFlight();
+		$watch = Watch::create([
+			'flight_id' => $flight->id,
+			'subscription_id' => 'SUB-LIVE',
+			'enabled' => true,
+		]);
+		User::factory()->create()->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
+		$callback = $this->makeCallback($watch);
+
+		$this->mockFlightAware(['SUB-LIVE'], []);
+
+		$this->artisan('maintenance:nightly')->assertExitCode(0);
+
+		$this->assertModelExists($watch);
+		$this->assertModelExists($flight);
+		$this->assertModelExists($callback);
+	}
+
+	// =========================================================================
+	// Callbacks from before watch_id existed whose watch couldn't be matched.
+	public function test_deletes_callbacks_not_linked_to_a_watch(): void {
+		Bus::fake();
+
+		$callback = $this->makeCallback(null);
+
+		$this->mockFlightAware([], []);
+
+		$this->artisan('maintenance:nightly')->assertExitCode(0);
+
+		$this->assertModelMissing($callback);
 	}
 }

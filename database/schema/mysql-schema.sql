@@ -403,6 +403,7 @@ CREATE TABLE `watch_callbacks` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `notification_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `alert_id` bigint unsigned NOT NULL COMMENT 'FlightAware alert ID that triggered this callback',
+  `watch_id` bigint unsigned DEFAULT NULL,
   `event_code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Event type: filed, offblock, departure, arrival, onblock, diverted, cancelled, ...',
   `event_dt` datetime DEFAULT NULL,
   `summary` longtext COLLATE utf8mb4_unicode_ci,
@@ -469,7 +470,9 @@ CREATE TABLE `watch_callbacks` (
   KEY `watch_callbacks_ident_index` (`ident`),
   KEY `watch_callbacks_registration_index` (`registration`),
   KEY `watch_callbacks_origin_index` (`origin`),
-  KEY `watch_callbacks_destination_index` (`destination`)
+  KEY `watch_callbacks_destination_index` (`destination`),
+  KEY `watch_callbacks_watch_id_foreign` (`watch_id`),
+  CONSTRAINT `watch_callbacks_watch_id_foreign` FOREIGN KEY (`watch_id`) REFERENCES `watches` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `watches`;
@@ -550,3 +553,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (56,'2026_09_23_140
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (59,'2026_09_23_150000_add_password_reset_tokens_email_foreign',11);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (60,'2026_09_23_150001_add_sessions_user_id_foreign',11);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (61,'2026_09_23_160000_add_name_to_family_members',12);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (62,'2026_09_24_120000_add_watch_id_to_watch_callbacks',13);

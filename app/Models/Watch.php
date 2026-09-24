@@ -36,7 +36,7 @@ class Watch extends Model implements Auditable {
 
 	// =========================================================================
 	public function callbacks(): HasMany {
-		return $this->hasMany(WatchCallback::class, 'alert_id', 'subscription_id');
+		return $this->hasMany(WatchCallback::class, 'watch_id', 'id');
 	}
 
 	// =========================================================================

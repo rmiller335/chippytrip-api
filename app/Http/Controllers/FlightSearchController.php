@@ -7,6 +7,7 @@ use App\Http\Resources\Sync\ListenerSyncResource;
 use App\Http\Resources\Sync\WatchSyncResource;
 use App\Models\Airline;
 use App\Models\Airport;
+use App\Models\Flight;
 use App\Services\FlightAwareSvc;
 use App\Services\FlightWatchSvc;
 use Carbon\Carbon;
@@ -199,5 +200,14 @@ class FlightSearchController extends Controller {
 			'destination_iata' =>	$flight->destination_iata ?? null,
 			'departure_time' =>		FlightAwareSvc::fixDT($flight->scheduled_out ?? null),
 		];
+	}
+
+	// =========================================================================
+	// Stop watching a flight. Removes the user's listener and their family
+	// members'; the watch and flight go too once no one else is watching.
+	public function unwatch(Request $request, Flight $flight, FlightWatchSvc $flightWatchSvc) {
+		abort_unless($flightWatchSvc->removeListener($flight, $request->user()), 404);
+
+		return response()->noContent();
 	}
 }

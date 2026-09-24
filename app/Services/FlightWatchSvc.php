@@ -51,6 +51,24 @@ class FlightWatchSvc {
 	}
 
 	// =========================================================================
+	// Stop the user watching a flight: remove their listener and those of
+	// their family members. A watch left with no listeners is cleaned up,
+	// with its flight and callbacks, by maintenance:nightly. Returns false
+	// when the user isn't watching the flight.
+	public function removeListener(Flight $flight, User $user): bool {
+		$watch = $flight->watch;
+
+		if (null == $watch || ! $watch->listeners()->where('user_id', $user->id)->exists()) {
+			return false;
+		}
+
+		$userIds = $user->family()->pluck('users.id')->push($user->id);
+		$watch->listeners()->whereIn('user_id', $userIds)->delete();
+
+		return true;
+	}
+
+	// =========================================================================
 	// Add a listener for each of the user's family members flagged to be
 	// auto-added whenever this user starts watching a flight.
 	private function addAutoFamilyListeners(Watch $watch, User $user): void {

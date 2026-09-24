@@ -24,6 +24,7 @@ class NotificationsIndexTest extends TestCase {
 			'summary' => 'UA100 departed',
 			'flight' => ['fa_flight_id' => 'FA123', 'ident' => 'UA100'],
 		]);
+		$callback->watch_id = $watch->id;
 		$callback->save();
 
 		// Real 'database' channel write -- no external network call involved.
@@ -52,6 +53,7 @@ class NotificationsIndexTest extends TestCase {
 			'summary' => 'UA100 departed',
 			'flight' => ['fa_flight_id' => 'FA123', 'ident' => 'UA100'],
 		]);
+		$callback->watch_id = $watch->id;
 		$callback->save();
 
 		$user->notify(new Departure($callback));

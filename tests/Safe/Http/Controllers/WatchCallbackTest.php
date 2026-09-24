@@ -49,7 +49,7 @@ class WatchCallbackTest extends TestCase {
 		$response = $this->postJson('/api/watch-callback?s=topsecret', $this->payload('SUB123', $today));
 
 		$response->assertStatus(200);
-		$this->assertDatabaseHas('watch_callbacks', ['alert_id' => 'SUB123']);
+		$this->assertDatabaseHas('watch_callbacks', ['alert_id' => 'SUB123', 'watch_id' => $watch->id]);
 
 		Bus::assertChained([SendNotification::class, NotificationsIndex::class]);
 	}

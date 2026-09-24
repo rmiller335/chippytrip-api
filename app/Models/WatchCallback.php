@@ -290,7 +290,7 @@ class WatchCallback extends Model {
 
 	// =========================================================================
 	public function watch(): BelongsTo {
-		return $this->belongsTo(Watch::class, 'alert_id', 'subscription_id');
+		return $this->belongsTo(Watch::class, 'watch_id', 'id');
 	}
 
 	// -------------------------------------------------------------------------
