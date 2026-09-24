@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -21,6 +22,9 @@ use Illuminate\Support\Facades\Log;
 #[Signature('maintenance:nightly')]
 #[Description('Command description')]
 class MaintenanceNightly extends Command {
+	// When the last run finished, for the /health check.
+	public const LAST_RUN_KEY = 'health:maintenance_last_run';
+
 	// =========================================================================
 	protected function disableOld() {
 		$now = Carbon::now('UTC');
@@ -73,6 +77,8 @@ class MaintenanceNightly extends Command {
 			$this->pruneUnwatched();
 			$this->pruneAlerts($fa);
 		});
+
+		Cache::forever(self::LAST_RUN_KEY, now()->toIso8601String());
     }
 
 	// =========================================================================

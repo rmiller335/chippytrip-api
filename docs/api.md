@@ -60,3 +60,68 @@ Accept: application/json
 
 HTTP/1.1 204 No Content
 ```
+
+## Health check
+
+```
+GET /health
+```
+
+Checks everything the API depends on. It's meant for uptime monitors, not
+the app. No authentication.
+
+### Responses
+
+| Status | Body `status` | When |
+|---|---|---|
+| `200 OK` | `ok` | Every check passed. |
+| `200 OK` | `degraded` | Something needs attention, but the API works: a non-critical check failed, or a check warned. |
+| `503 Service Unavailable` | `down` | A critical check failed. |
+
+Alert on `503`. `degraded` is worth a look but shouldn't page anyone.
+
+### Checks
+
+| Check | Critical | Fails when |
+|---|---|---|
+| `app` | yes | `APP_KEY` isn't set. Warns if `APP_DEBUG` is on in production. |
+| `database` | yes | The database can't be queried. |
+| `migrations` | yes | A migration hasn't been run. |
+| `cache` | yes | A value can't be written and read back. |
+| `storage` | yes | Files can't be written to the default disk, `storage/logs`, `storage/framework/cache` or `bootstrap/cache` isn't writable, or free disk is below `HEALTH_MIN_FREE_DISK_MB`. |
+| `queue` | yes | A job has waited longer than `HEALTH_QUEUE_MAX_WAIT` seconds. The check queues a small heartbeat job at most once a minute, so a stopped worker shows up even when nothing else is queued. |
+| `failed_jobs` | no | Any job failed in the last 24 hours. |
+| `maintenance` | yes | `maintenance:nightly` hasn't finished within `HEALTH_MAINTENANCE_MAX_AGE` seconds. Warns if no run has been recorded yet. |
+| `flightaware` | yes | AeroAPI isn't configured or rejects the key (`GET /account/usage`). |
+| `fcm` | yes | The Firebase service account can't get a token, or FCM rejects a `validate_only` message. Nothing is delivered. |
+| `openai` | no | OpenAI rejects the key or the configured `OPENAI_FLIGHT_MODEL`. Only used for forwarded confirmation emails. |
+
+`flightaware`, `fcm` and `openai` call external APIs. A passing result is
+cached for `HEALTH_EXTERNAL_TTL` seconds and a failure for 60 seconds, so
+frequent polling doesn't add API usage. Those results include
+`"cached": true`.
+
+### Details
+
+By default each check only shows its `status`. Send the `HEALTH_TOKEN`
+value as `X-Health-Token` to also get each check's `message`, timing (`ms`)
+and details:
+
+```
+GET /health HTTP/1.1
+X-Health-Token: <HEALTH_TOKEN>
+```
+
+```json
+{
+  "status": "ok",
+  "checked_at": "2026-09-24T14:50:57+00:00",
+  "checks": {
+    "database": { "status": "ok", "message": "Connected.", "connection": "mysql", "ms": 12 },
+    "queue": { "status": "ok", "message": "Worker is processing jobs.", "pending": 0, "last_heartbeat": "2026-09-24T14:50:54+00:00", "ms": 2 },
+    "flightaware": { "status": "ok", "message": "AeroAPI accepted the key.", "ms": 2711 }
+  }
+}
+```
+
+(Other checks omitted.) Settings are in `config/health.php`.

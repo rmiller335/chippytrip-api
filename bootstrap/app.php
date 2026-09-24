@@ -10,6 +10,10 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // Outside the web/api groups: no session, no auth.
+        then: function () {
+            Illuminate\Support\Facades\Route::get('/health', App\Http\Controllers\HealthController::class);
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
 		//
