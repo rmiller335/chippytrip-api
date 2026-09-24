@@ -4,12 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class FamilyMember extends Model implements Auditable {
-	use \OwenIt\Auditing\Auditable;
-
+class FamilyMember extends Model {
 	protected $table = 'family_members';
 
 	protected $casts = [

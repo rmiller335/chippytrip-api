@@ -12,7 +12,6 @@
         "laravel/framework": "^13.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
-        "owen-it/laravel-auditing": "^14.0",
         "phpoffice/phpspreadsheet": "^5.7"
     },
     "require-dev": {

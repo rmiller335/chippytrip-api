@@ -55,29 +55,6 @@ CREATE TABLE `airports` (
   CONSTRAINT `airports_country_code_foreign` FOREIGN KEY (`country_code`) REFERENCES `countries` (`iso2`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `audits`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `audits` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `user_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `user_id` bigint unsigned DEFAULT NULL,
-  `event` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `auditable_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `auditable_id` bigint unsigned NOT NULL,
-  `old_values` text COLLATE utf8mb4_unicode_ci,
-  `new_values` text COLLATE utf8mb4_unicode_ci,
-  `url` text COLLATE utf8mb4_unicode_ci,
-  `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `user_agent` varchar(1023) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `tags` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `audits_auditable_type_auditable_id_index` (`auditable_type`,`auditable_id`),
-  KEY `audits_user_id_user_type_index` (`user_id`,`user_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `cache`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -556,3 +533,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (60,'2026_09_23_150
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (61,'2026_09_23_160000_add_name_to_family_members',12);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (62,'2026_09_24_120000_add_watch_id_to_watch_callbacks',13);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (64,'2026_09_24_170000_unique_token_per_device',14);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (65,'2026_09_24_180000_drop_audits_table',15);

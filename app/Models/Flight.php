@@ -8,12 +8,9 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class Flight extends Model implements Auditable {
-	use \OwenIt\Auditing\Auditable;
-
+class Flight extends Model {
 	protected $casts = [
 		'alert_end' =>		'date',
 		'alert_start' =>	'date',

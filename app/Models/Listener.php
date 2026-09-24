@@ -4,12 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class Listener extends Model implements Auditable {
-	use \OwenIt\Auditing\Auditable;
-
+class Listener extends Model {
 	protected $table = 'listeners';
 
 	protected $fillable = [

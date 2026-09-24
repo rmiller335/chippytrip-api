@@ -11,12 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
-use OwenIt\Auditing\Contracts\Auditable;
 
 // =============================================================================
-class Watch extends Model implements Auditable {
-	use \OwenIt\Auditing\Auditable;
-
+class Watch extends Model {
 	protected $table = 'watches';
 
 	protected $attributes = [

@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use OwenIt\Auditing\Models\Audit;
 
 // =============================================================================
 class NightlyTestSeeder extends Seeder {
@@ -138,7 +137,6 @@ class NightlyTestSeeder extends Seeder {
 			Listener::query()->delete();
 			Watch::query()->delete();
 			Flight::query()->delete();
-			Audit::query()->delete();
 
 			// Now for the new ones ...
 			// In the past, with a watch

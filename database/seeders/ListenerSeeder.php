@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use OwenIt\Auditing\Models\Audit;
 
 // =============================================================================
 class ListenerSeeder extends Seeder {
@@ -106,7 +105,6 @@ class ListenerSeeder extends Seeder {
 			}
 
 			Flight::query()->delete();
-			Audit::query()->delete();
 
 			// Now for the new ones ...
 			$flight = $this->addFlight(
