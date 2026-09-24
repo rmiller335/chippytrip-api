@@ -21,8 +21,8 @@ class Departure extends Notification {
 	// =========================================================================
     public function toMail(object $notifiable): MailMessage {
 	return (new MailMessage)
-			->subject($this->callback->summary)
-			->line($this->callback->long_description)
+			->subject($this->callback->title)
+			->line($this->callback->body)
 		;
     }
 }

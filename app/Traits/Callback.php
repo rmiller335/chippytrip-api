@@ -11,6 +11,8 @@ trait Callback {
 			'alert_id' =>		$this->callback->alert_id,
 			'watch_id' =>		$this->callback->watch_id,
 			'callback_id' =>	$this->callback->id,
+			'title' =>			$this->callback->title,
+			'body' =>			$this->callback->body,
 			'summary' =>		$this->callback->summary,
 			'description' =>	$this->callback->long_description,
 		];
@@ -28,8 +30,8 @@ trait Callback {
     // =========================================================================
     public function toFcm(object $notifiable): array {
 		return [
-			'title'				=> $this->callback->summary,
-			'body' 				=> $this->callback->long_description,
+			'title'				=> $this->callback->title,
+			'body' 				=> $this->callback->body,
 			'alert_id'			=> $this->callback->alert_id,
 
 			'actual_in'         => $this->callback->actual_in?->toISOString(),

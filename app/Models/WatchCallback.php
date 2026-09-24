@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Services\CallbackText;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\Notification;
@@ -177,19 +179,21 @@ class WatchCallback extends Model {
 			// Aircraft
 			'aircraft_type' => $flight['aircraft_type'] ?? null,
 
-			// Origin airport
+			// Origin airport. AeroAPI alerts send `origin` as a code string with
+		// the other codes in flat origin_* fields; other endpoints send an
+		// object.
 			'origin'       => is_array($origin) ? ($origin['code'] ?? null) : $origin,
-			'origin_icao'  => is_array($origin) ? ($origin['code_icao'] ?? null) : null,
-			'origin_iata'  => is_array($origin) ? ($origin['code_iata'] ?? null) : null,
-			'origin_name'  => is_array($origin) ? ($origin['name'] ?? null) : null,
-			'origin_city'  => is_array($origin) ? ($origin['city'] ?? null) : null,
+			'origin_icao'  => is_array($origin) ? ($origin['code_icao'] ?? null) : ($flight['origin_icao'] ?? null),
+			'origin_iata'  => is_array($origin) ? ($origin['code_iata'] ?? null) : ($flight['origin_iata'] ?? null),
+			'origin_name'  => is_array($origin) ? ($origin['name'] ?? null) : ($flight['origin_name'] ?? null),
+			'origin_city'  => is_array($origin) ? ($origin['city'] ?? null) : ($flight['origin_city'] ?? null),
 
 			// Destination airport
 			'destination'       => is_array($dest) ? ($dest['code'] ?? null) : $dest,
-			'destination_icao'  => is_array($dest) ? ($dest['code_icao'] ?? null) : null,
-			'destination_iata'  => is_array($dest) ? ($dest['code_iata'] ?? null) : null,
-			'destination_name'  => is_array($dest) ? ($dest['name'] ?? null) : null,
-			'destination_city'  => is_array($dest) ? ($dest['city'] ?? null) : null,
+			'destination_icao'  => is_array($dest) ? ($dest['code_icao'] ?? null) : ($flight['destination_icao'] ?? null),
+			'destination_iata'  => is_array($dest) ? ($dest['code_iata'] ?? null) : ($flight['destination_iata'] ?? null),
+			'destination_name'  => is_array($dest) ? ($dest['name'] ?? null) : ($flight['destination_name'] ?? null),
+			'destination_city'  => is_array($dest) ? ($dest['city'] ?? null) : ($flight['destination_city'] ?? null),
 
 			// Route / plan
 			'route'              => $flight['route'] ?? null,
@@ -236,6 +240,26 @@ class WatchCallback extends Model {
 			'raw_payload'  => $payload,
 			'source_ip'    => $sourceIp,
 		]);
+	}
+
+	// =========================================================================
+	// Friendlier notification text; see CallbackText. FlightAware's own text
+	// stays in summary/short_description/long_description.
+	private ?CallbackText $text = null;
+
+	// =========================================================================
+	private function callbackText(): CallbackText {
+		return $this->text ??= new CallbackText($this);
+	}
+
+	// =========================================================================
+	protected function title(): Attribute {
+		return Attribute::get(fn () => $this->callbackText()->title());
+	}
+
+	// =========================================================================
+	protected function body(): Attribute {
+		return Attribute::get(fn () => $this->callbackText()->body());
 	}
 
 	// =========================================================================
