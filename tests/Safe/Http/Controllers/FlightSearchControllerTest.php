@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 use Tests\Safe\TestCase;
 
 // =============================================================================
-// Covers FlightSearchController::watch() — checkFlight()/search() are
+// Covers FlightSearchController::watch() and search() — checkFlight() is
 // covered by tests/Feature/FlightSearchControllerTest.php.
 class FlightSearchControllerTest extends TestCase {
 	// =========================================================================
@@ -213,5 +213,43 @@ class FlightSearchControllerTest extends TestCase {
 		]);
 
 		$response->assertStatus(401);
+	}
+
+	// =========================================================================
+	public function test_search_returns_departure_and_arrival_times(): void {
+		$user = User::factory()->create();
+
+		Http::fake([
+			'*/schedules/*' => Http::response([
+				'scheduled' => [[
+					'ident_iata' => 'VS3',
+					'ident_icao' => 'VIR3',
+					'origin_icao' => 'EGLL',
+					'origin_iata' => 'LHR',
+					'destination_icao' => 'KJFK',
+					'destination_iata' => 'JFK',
+					'scheduled_out' => '2026-07-01T14:00:00Z',
+					'scheduled_in' => '2026-07-01T22:05:00Z',
+				]],
+			], 200),
+		]);
+
+		$response = $this->actingAs($user, 'sanctum')
+			->postJson('/api/flights/search', [
+				'origin' => 'EGLL',
+				'destination' => 'KJFK',
+				'date' => Carbon::now()->addDays(10)->toDateString(),
+			]);
+
+		$response->assertStatus(200);
+		$response->assertJsonCount(1);
+		$response->assertJson([[
+			'flight_number' => 'VS3',
+			'departure_time' => '2026-07-01 14:00',
+			'arrival_time' => '2026-07-01 22:05',
+			'origin_name' => 'London Heathrow',
+			'destination_name' => 'John F Kennedy Intl',
+			'airline_name' => 'Virgin Atlantic',
+		]]);
 	}
 }

@@ -199,6 +199,7 @@ class FlightSearchController extends Controller {
 			'destination_icao' =>	$flight->destination_icao ?? $flight->destination ?? null,
 			'destination_iata' =>	$flight->destination_iata ?? null,
 			'departure_time' =>		FlightAwareSvc::fixDT($flight->scheduled_out ?? null),
+			'arrival_time' =>		FlightAwareSvc::fixDT($flight->scheduled_in ?? null),
 		];
 	}
 
