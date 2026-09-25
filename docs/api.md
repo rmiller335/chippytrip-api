@@ -12,11 +12,12 @@ and Postmark call it through webhooks.
 - Family: [list](#list-family-members), [replace](#replace-family-members), [a flight's family listeners](#list-a-flights-family-listeners), [replace them](#replace-a-flights-family-listeners)
 - [Sync](#sync)
 - [Webhooks](#webhooks)
-- [Health check](#health-check)
+- [Health check](#health-check), [notification audit](#notification-audit)
 
 ## Conventions
 
-- All endpoints are under `/api`, except `/health`. There are no other
+- All endpoints are under `/api`, except `/health` and
+  `/health/notifications`. There are no other
   routes; `/` returns `404`.
 - Send `Accept: application/json`. Request bodies are JSON
   (`Content-Type: application/json`).
@@ -80,8 +81,8 @@ Things to know:
 - **Family members can't sign in.** Adding someone with
   [`PUT /api/family-members`](#replace-family-members) creates an account
   for their email with no password, so `POST /api/sanctum/token` rejects it.
-- `/health` uses its own header, not a Sanctum token. See
-  [Health check](#health-check).
+- `/health` and `/health/notifications` use their own header, not a
+  Sanctum token. See [Health check](#health-check).
 - The webhooks authenticate differently. See [Webhooks](#webhooks).
 
 ### Get a token
@@ -141,6 +142,7 @@ Use the whole string, including the `1|` prefix, as the bearer token.
 | `POST` | [`/api/watch-callback`](#flightaware-alerts) | secret | FlightAware alert webhook |
 | `POST` | [`/api/postmark/inbound`](#forwarded-confirmation-emails) | basic auth | Postmark inbound email webhook |
 | `GET` | [`/health`](#health-check) | health token | Health check for uptime monitors |
+| `GET` | [`/health/notifications`](#notification-audit) | health token | Flights with missing or out-of-order notifications |
 
 ## Get the current user
 
@@ -793,3 +795,106 @@ Each check has a `status`, a `message`, its timing (`ms`) and any details:
 ```
 
 (Other checks omitted.) Settings are in `config/health.php`.
+
+## Notification audit
+
+```
+GET /health/notifications
+```
+
+Checks that each recent flight's FlightAware events arrived in order and
+that the flight finished. It's meant for monitoring (Nagios etc.). It takes
+the same `X-Health-Token` header as [`/health`](#health-check). The
+`notifications:audit` command runs the same checks from the command line,
+logs each finding and exits `1` if there's an error.
+
+Flights departing up to `AUDIT_LOOKBACK_HOURS` (default 48) ago, or up to a
+day ahead, are checked if their watch's FlightAware alert was ever created.
+A finding stays until its flight falls out of that window.
+
+### Responses
+
+| Status | Body `status` | When |
+|---|---|---|
+| `200 OK` | `ok` | No findings. |
+| `200 OK` | `warning` | Only warnings. |
+| `503 Service Unavailable` | `critical` | At least one error. |
+| `404 Not Found` | — | The token is missing or wrong, or `HEALTH_TOKEN` isn't set. |
+
+For Nagios:
+
+```
+check_http -S -H api.chippytrip.com -u /health/notifications \
+    -k 'X-Health-Token: <HEALTH_TOKEN>' -e 200
+```
+
+is critical on errors and OK otherwise. Adding `-s '"status":"ok"'` makes
+warnings critical too; `check_http` can't turn a body match into WARNING.
+
+### What's checked
+
+Events should arrive as
+`filed → out → departure → (diverted, hold_start … hold_end) → arrival → in`.
+(FlightAware's `departure` is wheels off and `arrival` is wheels down.)
+Callbacks for the same flight number on other days are ignored, and if
+FlightAware replaced the flight's `fa_flight_id` only the latest one has to
+finish.
+
+| Code | Severity | Meaning |
+|---|---|---|
+| `missed_event` | error | A milestone was skipped though it happened after the alert was created. A warning for `filed`, or for `out`/`in` when FlightAware has no time for them. Milestones before the alert existed (a watch added mid-flight) aren't reported. |
+| `out_of_order` | error | A milestone arrived after a later one and its time doesn't fit, or an airborne event came before takeoff or after landing. A milestone that arrives late with a time that fits (FlightAware learning the gate time after takeoff) is fine. |
+| `duplicate` | warning | The same milestone twice, or `diverted` twice. |
+| `event_after_cancelled` | error | Anything after `cancelled`. `cancelled` itself can come at any point. |
+| `event_after_in` | error | Anything but `change` or a late milestone after `in`. |
+| `hold_sequence` | error | `hold_start`/`hold_end` don't alternate. A lone `hold_end` is fine for a watch added mid-flight. |
+| `hold_not_ended` | error | `arrival` while in a hold. |
+| `diverted_same_destination` | warning | Arrived after `diverted` at the original destination. |
+| `times_out_of_order` | error | The latest payload's `actual_out`, `actual_off`, `actual_on`, `actual_in` aren't in order. |
+| `stale` | varies | The flight stopped progressing. See below. |
+| `unknown_event` | warning | An `event_code` the audit doesn't know. The message says if no notification was sent for it. |
+| `unhandled_event` | warning | An `event_code` the audit knows but with no notification class, so nobody was notified. The callback webhook also logs a warning when one arrives. |
+
+A flight is finished at `in`, `cancelled`, or `arrival` after `diverted`.
+Otherwise, measured from the latest payload's estimate:
+
+| Last event | Flagged after | Severity |
+|---|---|---|
+| none (alert existed before the flight) | `scheduled_out` + `AUDIT_FILED_STALE` (360 min) | error |
+| `filed` | `estimated_out` + `AUDIT_FILED_STALE` (360 min) | warning |
+| `out` | `estimated_off` + `AUDIT_OUT_STALE` (120 min) | error |
+| `departure`, hold, `diverted` | `estimated_on` + `AUDIT_AIRBORNE_STALE` (180 min) | error |
+| `arrival` | `actual_on` + `AUDIT_LANDED_STALE` (120 min) | warning |
+
+A milestone counts as before the alert if it happened before the watch's
+`enabled_at` plus `AUDIT_LATE_JOIN_GRACE` (5 min). Watches enabled before
+`enabled_at` existed use `created_at`.
+
+### Example response
+
+```json
+{
+  "status": "critical",
+  "checked_at": "2026-09-25T13:10:00+00:00",
+  "errors": 1,
+  "warnings": 0,
+  "flights": [
+    {
+      "watch_id": 156,
+      "flight_id": 312,
+      "flight": "LH400",
+      "departure_date": "2026-09-24",
+      "findings": [
+        {
+          "severity": "error",
+          "code": "stale",
+          "callback_id": 1606,
+          "message": "Took off but never landed; expected by 2026-09-24T17:20:00+00:00"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Settings are in `config/health.php` under `audit`.

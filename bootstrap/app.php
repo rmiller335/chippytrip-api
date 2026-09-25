@@ -8,9 +8,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
-        // Outside the api group: no auth.
+        // Outside the api group: X-Health-Token instead of Sanctum.
         then: function () {
-            Illuminate\Support\Facades\Route::get('/health', App\Http\Controllers\HealthController::class);
+            Illuminate\Support\Facades\Route::middleware(App\Http\Middleware\RequireHealthToken::class)
+                ->group(function () {
+                    Illuminate\Support\Facades\Route::get('/health', App\Http\Controllers\HealthController::class);
+                    Illuminate\Support\Facades\Route::get('/health/notifications', App\Http\Controllers\NotificationAuditController::class);
+                });
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

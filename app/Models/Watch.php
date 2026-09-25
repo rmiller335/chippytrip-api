@@ -22,6 +22,7 @@ class Watch extends Model {
 
 	protected $casts = [
 		'enabled' =>	'boolean',
+		'enabled_at' =>	'datetime',
 	];
 
 	protected $fillable = [
@@ -48,6 +49,14 @@ class Watch extends Model {
 		$this->subscription_id =	$subsId;
 		$this->secret =				$secret;
 		$this->enabled =			true;
+		$this->enabled_at =			now();
+	}
+
+	// =========================================================================
+	// When the current FlightAware alert started seeing events. Watches
+	// enabled before enabled_at existed fall back to created_at.
+	public function activeFrom(): Carbon {
+		return $this->enabled_at ?? $this->created_at;
 	}
 
 	// =========================================================================

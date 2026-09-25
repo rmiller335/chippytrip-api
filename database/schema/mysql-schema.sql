@@ -461,6 +461,7 @@ CREATE TABLE `watches` (
   `flight_id` bigint unsigned NOT NULL,
   `subscription_id` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `enabled_at` timestamp NULL DEFAULT NULL,
   `secret` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
@@ -534,3 +535,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (61,'2026_09_23_160
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (62,'2026_09_24_120000_add_watch_id_to_watch_callbacks',13);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (64,'2026_09_24_170000_unique_token_per_device',14);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (65,'2026_09_24_180000_drop_audits_table',15);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (66,'2026_09_25_120000_add_enabled_at_to_watches',16);

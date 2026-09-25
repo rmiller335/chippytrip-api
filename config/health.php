@@ -22,4 +22,26 @@ return [
 
 	// Fail if the disk holding storage/ has less free space than this.
 	'min_free_disk_mb' => (int) env('HEALTH_MIN_FREE_DISK_MB', 500),
+
+	// notifications:audit and GET /health/notifications. A flight that hasn't
+	// progressed past a state within these many minutes of the expected time
+	// is flagged. See App\Services\FlightEventAudit.
+	'audit' => [
+		// Flights departing within this many hours before now (and up to a
+		// day ahead) are audited.
+		'lookback_hours' =>		(int) env('AUDIT_LOOKBACK_HOURS', 48),
+
+		// Only filed (or nothing at all): after scheduled/estimated out.
+		'filed_stale' =>		(int) env('AUDIT_FILED_STALE', 360),
+		// Left the gate: after estimated off.
+		'out_stale' =>			(int) env('AUDIT_OUT_STALE', 120),
+		// Airborne: after estimated on.
+		'airborne_stale' =>		(int) env('AUDIT_AIRBORNE_STALE', 180),
+		// Landed: after actual on, with no gate arrival.
+		'landed_stale' =>		(int) env('AUDIT_LANDED_STALE', 120),
+
+		// A milestone within this many minutes after the alert was created
+		// may have happened before FlightAware saw the alert.
+		'late_join_grace' =>	(int) env('AUDIT_LATE_JOIN_GRACE', 5),
+	],
 ];

@@ -4,13 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Services\HealthCheckSvc;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 // =============================================================================
 // GET /health — 200 when everything critical works, 503 when anything
-// critical fails, 404 without a valid X-Health-Token. See docs/api.md.
+// critical fails, 404 without a valid X-Health-Token (RequireHealthToken).
+// See docs/api.md.
 class HealthController extends Controller {
 	// Check name => [HealthCheckSvc method, critical, external]. A failed
 	// non-critical check makes the status "degraded", not "down". External
@@ -30,10 +30,7 @@ class HealthController extends Controller {
 	];
 
 	// =========================================================================
-	public function __invoke(Request $request, HealthCheckSvc $svc): JsonResponse {
-		// 404 rather than 401 so the endpoint doesn't advertise itself.
-		abort_unless($this->authorized($request), 404);
-
+	public function __invoke(HealthCheckSvc $svc): JsonResponse {
 		$checks = [];
 
 		foreach (self::CHECKS as $name => [$method, $critical, $external]) {
@@ -113,13 +110,5 @@ class HealthController extends Controller {
 				'message' =>	'Not checked: the cache is unavailable.',
 			];
 		}
-	}
-
-	// =========================================================================
-	private function authorized(Request $request): bool {
-		$token = config('health.token');
-
-		return ! empty($token)
-			&& hash_equals($token, (string) $request->header('X-Health-Token'));
 	}
 }
