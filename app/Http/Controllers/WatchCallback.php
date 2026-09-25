@@ -29,6 +29,13 @@ class WatchCallback extends Controller {
 		$wc->watch_id = $watch->id;
 		$wc->save();
 
+		if (! \App\Models\WatchCallback::handles($wc->event_code)) {
+			Log::warning("WatchCallback: no notification for event '{$wc->event_code}'", [
+				'callback_id' =>	$wc->id,
+				'watch_id' =>		$watch->id,
+			]);
+		}
+
 		if($wc->matchesFlightDate($watch->flight)) {
 			foreach($wc->watch->listeners as $listener) {
 				Bus::chain([

@@ -597,8 +597,8 @@ sort by `event_dt`.
 | `notification_id` | string | UUID. Stable; use it to match a push notification to its row. |
 | `flight_id` | integer | |
 | `alert_id` | integer | FlightAware alert ID. |
-| `event_code` | string | `filed`, `out`, `departure`, `arrival`, `in`, `change`, `cancelled`, `diverted`, … |
-| `event_dt` | string | When the event happened, UTC. |
+| `event_code` | string | `filed`, `out`, `departure`, `arrival`, `in`, `change`, `cancelled`, `diverted`, `hold_start`, `hold_end`, … |
+| `event_dt` | string | When the event happened, UTC. For events with no time of their own (`hold_start`, `hold_end`), when it was received. |
 | `title`, `body` | string | The notification text, as sent in the push, e.g. "UA100 took off from SFO" / "Arrives JFK 8:25 PM (5 min early) at Terminal 7." Times are local to the airport. |
 | `summary`, `short_description`, `long_description` | string\|null | FlightAware's own text, for a detail view. `long_description` has several lines. |
 | `cancelled`, `diverted` | boolean | |

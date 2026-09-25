@@ -11,6 +11,7 @@ use App\Notifications\Arrival;
 use App\Notifications\Departure;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Tests\Safe\TestCase;
 
@@ -223,5 +224,50 @@ class WatchCallbackTest extends TestCase {
 
 		$this->assertSame(1, WatchCallback::count());
 		Notification::assertNothingSent();
+	}
+
+	// =========================================================================
+	public function test_callback_warns_about_an_event_with_no_notification(): void {
+		Bus::fake();
+		Log::spy();
+
+		$today = Carbon::now()->toDateString();
+		$flight = $this->makeFlight(['departure_date' => $today]);
+		$watch = Watch::create([
+			'flight_id' => $flight->id,
+			'subscription_id' => '1234567',
+			'secret' => 'topsecret',
+			'enabled' => true,
+		]);
+
+		$this->postJson('/api/watch-callback?s=topsecret',
+			$this->payload('1234567', $today, ['event_code' => 'minutes_out'])
+		)->assertStatus(200);
+
+		Log::shouldHaveReceived('warning')
+			->withArgs(fn ($message, $context) => "WatchCallback: no notification for event 'minutes_out'" === $message
+				&& $context['watch_id'] === $watch->id)
+			->once();
+	}
+
+	// =========================================================================
+	public function test_callback_does_not_warn_about_handled_events(): void {
+		Bus::fake();
+		Log::spy();
+
+		$today = Carbon::now()->toDateString();
+		$flight = $this->makeFlight(['departure_date' => $today]);
+		Watch::create([
+			'flight_id' => $flight->id,
+			'subscription_id' => '1234567',
+			'secret' => 'topsecret',
+			'enabled' => true,
+		]);
+
+		$this->postJson('/api/watch-callback?s=topsecret',
+			$this->payload('1234567', $today, ['event_code' => 'hold_start'])
+		)->assertStatus(200);
+
+		Log::shouldNotHaveReceived('warning');
 	}
 }

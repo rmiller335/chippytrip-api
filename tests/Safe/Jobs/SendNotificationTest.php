@@ -6,6 +6,9 @@ use App\Jobs\SendNotification;
 use App\Models\User;
 use App\Models\WatchCallback;
 use App\Notifications\Departure;
+use App\Notifications\HoldEnd;
+use App\Notifications\HoldStart;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Tests\Safe\TestCase;
 
@@ -37,16 +40,31 @@ class SendNotificationTest extends TestCase {
 	}
 
 	// =========================================================================
-	public function test_handle_throws_for_unrecognized_event_code(): void {
-		// WatchCallback::notification() always does `new $class(...)`
-		// without a class_exists() guard, so an unrecognized event_code
-		// throws an Error instead of returning null -- SendNotification's
-		// Log::warning() fallback for "no notification" is unreachable.
+	public function test_handle_sends_hold_notifications(): void {
+		Notification::fake();
+
+		$user = User::factory()->create();
+
+		(new SendNotification($this->makeCallback('hold_start'), $user))->handle();
+		(new SendNotification($this->makeCallback('hold_end'), $user))->handle();
+
+		Notification::assertSentTo($user, HoldStart::class);
+		Notification::assertSentTo($user, HoldEnd::class);
+	}
+
+	// =========================================================================
+	public function test_handle_warns_and_sends_nothing_for_unrecognized_event_code(): void {
+		Notification::fake();
+		Log::spy();
+
 		$user = User::factory()->create();
 		$callback = $this->makeCallback('totally_unknown_event');
 
-		$this->expectException(\Error::class);
-
 		(new SendNotification($callback, $user))->handle();
+
+		Notification::assertNothingSent();
+		Log::shouldHaveReceived('warning')
+			->with("SendNotification: no notification for 'totally_unknown_event'", ['callback_id' => $callback->id])
+			->once();
 	}
 }

@@ -27,7 +27,9 @@ class SendNotification implements ShouldQueue {
 			$this->user->notify($notification);
 		}
 		else {
-			Log::warning("No notification for $this->callback->event_code");
+			Log::warning("SendNotification: no notification for '{$this->callback->event_code}'", [
+				'callback_id' =>	$this->callback->id,
+			]);
 		}
     }
 }

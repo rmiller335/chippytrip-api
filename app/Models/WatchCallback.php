@@ -21,6 +21,8 @@ use Illuminate\Support\Str;
  *  arrival      – wheels on (actual_on)
  *  onblock      – aircraft at gate (actual_in)
  *  diverted     – flight diverted to alternate airport
+ *  hold_start   – aircraft entered a holding pattern
+ *  hold_end     – aircraft left the holding pattern
  *  cancelled    – flight cancelled
  *  departure_delay  – significant departure delay (>30 min)
  *  arrival_delay    – significant en-route delay (>30 min)
@@ -45,6 +47,10 @@ class WatchCallback extends Model {
 
         'cancelled' => ['scheduled_out'],
         'filed'     => ['scheduled_out'],
+
+        // No time in the payload; sync falls back to when it was received.
+        'hold_start' => [],
+        'hold_end'   => [],
     ];
 
 	protected $fillable = [
@@ -263,11 +269,27 @@ class WatchCallback extends Model {
 	}
 
 	// =========================================================================
+	// Null for an event we have no notification for.
 	public function notification(): ?Notification {
-		$type = Str::studly($this->event_code);
-		$class = 'App\\Notifications\\' . $type;
+		if (! self::handles($this->event_code)) {
+			return null;
+		}
+
+		$class = self::notificationClass($this->event_code);
 
 		return new $class($this);
+	}
+
+	// =========================================================================
+	// Whether an event_code has a notification class.
+	public static function handles(?string $eventCode): bool {
+		return null !== $eventCode
+			&& is_subclass_of(self::notificationClass($eventCode), Notification::class);
+	}
+
+	// =========================================================================
+	private static function notificationClass(string $eventCode): string {
+		return 'App\\Notifications\\' . Str::studly($eventCode);
 	}
 
 	// -------------------------------------------------------------------------

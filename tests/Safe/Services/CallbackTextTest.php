@@ -150,6 +150,29 @@ class CallbackTextTest extends TestCase {
 	}
 
 	// =========================================================================
+	public function test_hold_start(): void {
+		$cb = $this->makeCallback('hold_start', ['estimated_in' => '2026-07-02T00:50:00Z']);
+
+		$this->assertSame('UA100 is in a holding pattern', $cb->title);
+		$this->assertSame('Arrives JFK 8:50 PM (20 min late).', $cb->body);
+	}
+
+	// =========================================================================
+	public function test_hold_end(): void {
+		$cb = $this->makeCallback('hold_end', ['estimated_in' => '2026-07-02T00:50:00Z']);
+
+		$this->assertSame('UA100 has left the holding pattern', $cb->title);
+		$this->assertSame('Arrives JFK 8:50 PM (20 min late).', $cb->body);
+	}
+
+	// =========================================================================
+	// No time in a hold payload, so sync shows when it was received rather
+	// than scheduled_out.
+	public function test_hold_has_no_event_time(): void {
+		$this->assertNull($this->makeCallback('hold_start')->event_dt);
+	}
+
+	// =========================================================================
 	public function test_change_names_a_new_departure_time(): void {
 		$this->makeCallback('filed', ['estimated_out' => '2026-07-01T16:00:00Z']);
 		$cb = $this->makeCallback('change', ['estimated_out' => '2026-07-01T16:40:00Z']);

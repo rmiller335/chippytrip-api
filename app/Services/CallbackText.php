@@ -54,6 +54,8 @@ class CallbackText {
 			'in', 'onblock' =>						$this->atGate(),
 			'cancelled' =>							$this->cancelled(),
 			'diverted' =>							$this->diverted(),
+			'hold_start' =>							$this->holding(),
+			'hold_end' =>							$this->holdEnded(),
 			'change', 'gate_change' =>				$this->changed(),
 			'delay', 'departure_delay' =>			$this->departureDelay(),
 			'arrival_delay' =>						$this->arrivalDelay(),
@@ -175,6 +177,23 @@ class CallbackText {
 		return [
 			'title' =>	$this->flight() . ' has been diverted',
 			'body' =>	$body,
+		];
+	}
+
+	// =========================================================================
+	// "UA100 is in a holding pattern" / "Arrives JFK 5:40 PM (20 min late)."
+	private function holding(): array {
+		return [
+			'title' =>	$this->flight() . ' is in a holding pattern',
+			'body' =>	$this->arrivesSentence(),
+		];
+	}
+
+	// =========================================================================
+	private function holdEnded(): array {
+		return [
+			'title' =>	$this->flight() . ' has left the holding pattern',
+			'body' =>	$this->arrivesSentence(),
 		];
 	}
 
