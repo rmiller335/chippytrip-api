@@ -57,9 +57,11 @@ class NotificationAuditSvc {
 	// =========================================================================
 	// Callbacks for neighbouring days' flights are ignored. FlightAware
 	// sometimes replaces a flight's fa_flight_id part way, so each id is
-	// audited separately and only the latest is expected to finish.
+	// audited separately and only the latest is expected to finish. Callbacks
+	// from notifications:test aren't FlightAware events.
 	private function auditWatch(Watch $watch, Carbon $now): array {
 		$groups = $watch->callbacks()
+			->where('event_code', '!=', 'test')
 			->orderBy('id')
 			->get()
 			->filter(fn ($cb) => $cb->matchesFlightDate($watch->flight))

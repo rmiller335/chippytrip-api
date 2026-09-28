@@ -28,6 +28,7 @@ use Illuminate\Support\Str;
  *  arrival_delay    – significant en-route delay (>30 min)
  *  gate_change  – departure or arrival gate changed
  *  airport_delay    – general airport-level delay
+ *  test         – sent by notifications:test, not FlightAware
 */
 
 // =============================================================================
@@ -51,6 +52,7 @@ class WatchCallback extends Model {
         // No time in the payload; sync falls back to when it was received.
         'hold_start' => [],
         'hold_end'   => [],
+        'test'       => [],
     ];
 
 	protected $fillable = [

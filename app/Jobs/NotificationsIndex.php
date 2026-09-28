@@ -24,10 +24,13 @@ class NotificationsIndex implements ShouldQueue {
 		\App\Notifications\Diverted::class,
 		\App\Notifications\Filed::class,
 		\App\Notifications\GateChange::class,
+		\App\Notifications\HoldEnd::class,
+		\App\Notifications\HoldStart::class,
 		\App\Notifications\In::class,
 		\App\Notifications\Offblock::class,
 		\App\Notifications\Onblock::class,
 		\App\Notifications\Out::class,
+		\App\Notifications\Test::class,
 	];
 
 	// =========================================================================
