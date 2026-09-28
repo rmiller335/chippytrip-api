@@ -35,13 +35,18 @@ class FcmChannel {
             // Notification-only send: OS auto-displays this directly when
             // backgrounded/killed, with zero app code involved — immune to
             // OEM background-execution restrictions (e.g. Motorola).
+            // The `url` extra lets the NativePHP shell deep-link a tap on
+            // the tray notification with no background PHP. No `event` key,
+            // so the client's FCM listener ignores it.
             try {
-                $this->sender->send(
-                    FcmMessage::make()->to($token)->notification(
-                        $data['title'] ?? 'ChippyTrip',
-                        $data['body'] ?? ''
-                    )
+                $message = FcmMessage::make()->to($token)->notification(
+                    $data['title'] ?? 'ChippyTrip',
+                    $data['body'] ?? ''
                 );
+                if (!empty($data['alert_id'])) {
+                    $message->url("/notifications/open/{$data['alert_id']}");
+                }
+                $this->sender->send($message);
             } catch (\RuntimeException $e) {
                 $this->handleSendFailure($e, $channel, $token, 'notification');
             }
