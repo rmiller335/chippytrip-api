@@ -2,7 +2,7 @@
 
 Sep 28, 2026 · Robert Miller
 
-> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 31). The doc is the source of truth; re-export after changing it.
+> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 32). The doc is the source of truth; re-export after changing it.
 
 ## Overview
 
@@ -363,12 +363,11 @@ The beta stays closed until these are done; none of them block the build order a
 - [ ] **Play closed test**, required for a new personal account: 12 testers opted in for 14 continuous days before production access; the beta group can be moved over.
 - [ ] **Open sign-up.** Set `BETA_GATE=false`.
 
-## Open questions
+## Decisions
 
-- Should pending members keep receiving pushes for flights they were already added to before this ships? The backfill says yes for existing rows; new rows wait for acceptance.
+The design's open questions were all settled on 2026-09-29.
 
-Decided on 2026-09-29:
-
+- Pending members keep receiving pushes for flights they were already added to before this ships: the backfill marks existing rows `accepted`, and only new rows wait for acceptance.
 - A sign-up without an invite gets `subscription_type = free`; claiming a `family` placeholder keeps `family`.
 - An owner sees `declined` on a member who declined, distinct from an expired invitation, and can re-invite.
 - Invite links and `assetlinks.json` are served by the API at its `APP_URL`, which is `https://api-dev.chippytrip.com` today. Moving to a production host is an `APP_URL` change plus the app's `NATIVEPHP_DEEPLINK_HOST`.
