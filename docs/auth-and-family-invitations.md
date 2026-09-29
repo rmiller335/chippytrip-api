@@ -2,7 +2,7 @@
 
 Sep 28, 2026 · Robert Miller
 
-> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 27). The doc is the source of truth; re-export after changing it.
+> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 31). The doc is the source of truth; re-export after changing it.
 
 ## Overview
 
@@ -172,7 +172,7 @@ The callback checks these in order and stops at the first match:
 ### Invitation
 
 1. Bob adds Alice through `PUT /api/family-members`. The row is `pending`. If Alice's email has no account, a placeholder is created as today.
-2. The API creates an invitation and returns `invite_url` (`https://chippytrip.com/invite/{token}`). Postmark emails it; Bob can also share it from the app.
+2. The API creates an invitation and returns `invite_url` (`{APP_URL}/invite/{token}`, so `https://api-dev.chippytrip.com/invite/{token}` today). Postmark emails it; Bob can also share it from the app.
 3. Alice has an account: she also gets a push and sees the request under `GET /api/family-invitations`. Accepting needs no link.
 4. Alice has no account: the link opens the app (Android App Link) or the web page with a Play Store link. The app keeps the token through the install and shows "Bob invited you to see his flights."
 5. Alice signs up by any method, and the token rides along. The API claims or merges, sets the row to `accepted`, and marks the invitation used, in one transaction.
@@ -264,13 +264,13 @@ Google and Apple both redirect to the API, not the app, so each needs only a web
 
 ### Deep links
 
-- chippytrack `.env`: `NATIVEPHP_DEEPLINK_SCHEME=chippytrack` for the OAuth return, `NATIVEPHP_DEEPLINK_HOST=chippytrip.com` for invite App Links.
-- Serve `https://chippytrip.com/.well-known/assetlinks.json` for `com.chippytrip.chippytrack` with the release and debug signing-key SHA-256 fingerprints, plus the Play app signing key once builds ship through Play.
-- `https://chippytrip.com/invite/{token}` also needs a plain web page for people without the app: install instructions (App Tester during the beta, a Play Store link after launch) plus the token to paste after installing.
+- chippytrack `.env`: `NATIVEPHP_DEEPLINK_SCHEME=chippytrack` for the OAuth return, `NATIVEPHP_DEEPLINK_HOST=api-dev.chippytrip.com` for invite App Links; it must match the host of the API's `APP_URL`.
+- Serve `{APP_URL}/.well-known/assetlinks.json` from the API for `com.chippytrip.chippytrack` with the release and debug signing-key SHA-256 fingerprints, plus the Play app signing key once builds ship through Play.
+- `{APP_URL}/invite/{token}` also needs a plain web page, served by the API, for people without the app: install instructions (App Tester during the beta, a Play Store link after launch) plus the token to paste after installing.
 
 ### Postmark
 
-- New outbound templates: family invitation, password reset and email verification. Invitation links go to `https://chippytrip.com/invite/{token}`.
+- New outbound templates: family invitation, password reset and email verification. Invitation links go to `{APP_URL}/invite/{token}`.
 
 ## Beta program
 
@@ -366,9 +366,12 @@ The beta stays closed until these are done; none of them block the build order a
 ## Open questions
 
 - Should pending members keep receiving pushes for flights they were already added to before this ships? The backfill says yes for existing rows; new rows wait for acceptance.
-- Does a sign-up without an invite get `subscription_type = free`, and does claiming a `family` placeholder keep `family` or change it?
-- Should an owner be able to see that an invitee declined, or should a decline look the same as an expired invitation?
-- Is `chippytrip.com` the right host for invite links, or should they use `api-dev.chippytrip.com` until a production host exists?
+
+Decided on 2026-09-29:
+
+- A sign-up without an invite gets `subscription_type = free`; claiming a `family` placeholder keeps `family`.
+- An owner sees `declined` on a member who declined, distinct from an expired invitation, and can re-invite.
+- Invite links and `assetlinks.json` are served by the API at its `APP_URL`, which is `https://api-dev.chippytrip.com` today. Moving to a production host is an `APP_URL` change plus the app's `NATIVEPHP_DEEPLINK_HOST`.
 
 ## Sources
 
