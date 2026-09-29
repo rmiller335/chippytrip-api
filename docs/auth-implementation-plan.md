@@ -6,7 +6,7 @@ This plan builds [auth-and-family-invitations.md](auth-and-family-invitations.md
 
 ## Findings from the current code
 
-The design doesn't cover these 11 points. Each one changes how a phase is built.
+These 11 points come from reading the current code, and each shapes how a phase is built. Most are implementation details; 7, 8 and 11 are also written into the design doc.
 
 | # | Finding | Where | Consequence |
 | --- | --- | --- | --- |
@@ -114,7 +114,7 @@ Phases 1 and 3 go out in the same deploy. Without Phase 3 there is no way to acc
 | `DELETE /api/family-memberships/{owner}` | Deletes my row in their list and my listeners on their watches |
 | `register`, `sanctum/token` | A valid `invite_token` accepts in the same transaction |
 
-The design listed `invite_url` on every pending row of `GET /api/family-members`; this plan drops that so raw tokens are never stored.
+Raw tokens are never stored, so a link is only shown when it is issued; the design doc matches.
 
 - `RateLimiter::for('invites')` in `AppServiceProvider`, keyed by IP.
 - `App\Notifications\FamilyInvitation` over `FcmChannel`, deep-linking to the invite.

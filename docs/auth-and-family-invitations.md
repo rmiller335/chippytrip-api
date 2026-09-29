@@ -2,7 +2,7 @@
 
 Sep 28, 2026 · Robert Miller
 
-> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 32). The doc is the source of truth; re-export after changing it.
+> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 37). The doc is the source of truth; re-export after changing it.
 
 ## Overview
 
@@ -85,7 +85,7 @@ All changes are in chippytrip-api. Two columns are added to an existing table, a
 
 ## API endpoints
 
-Everything is additive under `/api`; no existing request or response changes shape except that family rows gain `status` and `invite_url`. JSON throughout, except `POST /api/sanctum/token`, which keeps returning plain text so the current app build doesn't break.
+Everything is additive under `/api`; no existing request or response changes shape except that family rows gain `status`, and new rows in the `PUT /api/family-members` response also carry `invite_url`. JSON throughout, except `POST /api/sanctum/token`, which keeps returning plain text so the current app build doesn't break.
 
 ### Sign-up, sign-in, sign-out
 
@@ -97,6 +97,8 @@ Everything is additive under `/api`; no existing request or response changes sha
 | POST | `/api/auth/logout-all` | token | — → 204 | Deletes all tokens and FCM channels |
 | POST | `/api/auth/forgot-password` | — | `email` → 202 | Always 202; uses the existing `password_reset_tokens` table |
 | POST | `/api/auth/reset-password` | — | `token, email, password` → 204 | Revokes all existing tokens |
+| GET | `/api/auth/verify-email/{id}/{hash}` | signed URL | → page confirming the address | The link in the verification email; sets `email_verified_at` |
+| POST | `/api/auth/verify-email/resend` | token | — → 202 | Throttled |
 
 ### Google and Apple
 
@@ -120,11 +122,11 @@ Everything is additive under `/api`; no existing request or response changes sha
 
 | Method | Path | Auth | Body → response | Notes |
 | --- | --- | --- | --- | --- |
-| GET | `/api/family-members` | token | Rows gain `status` and, when pending, `invite_url` | Owner's view of their own list |
-| PUT | `/api/family-members` | token | Unchanged request | New rows start `pending` and get an invitation; existing rows keep their status |
-| POST | `/api/family-members/{member}/invite` | token | → `{invite_url, expires_at}` | Rotates the token and resends; for the share sheet |
+| GET | `/api/family-members` | token | Rows gain `status`; no `invite_url` | Owner's view of their own list. Only the token's hash is stored, so a link can't be shown again later. |
+| PUT | `/api/family-members` | token | Unchanged request | New rows start `pending`, get an invitation, and carry `invite_url` in this response; existing rows keep their status |
+| POST | `/api/family-members/{member}/invite` | token | → `{invite_url, expires_at}` | Rotates the token and resends; a `declined` row goes back to `pending`. The Share invite button calls this. |
 | GET | `/api/invitations/{token}` | — | → `{inviter_name, member_name, email_hint, expires_at}` | 410 when expired or used. `email_hint` is masked (`a•••@work.com`). |
-| GET | `/api/family-invitations` | token | → pending invitations addressed to me | Lets a signed-in user see requests without a link |
+| GET | `/api/family-invitations` | token | → pending invitations addressed to me | Lets a signed-in user see requests without a link. Empty for an account claimed by email alone until the email is verified. |
 | POST | `/api/family-invitations/{id}/accept` | token | → 204 | Or accept by token: `POST /api/invitations/{token}/accept` |
 | POST | `/api/family-invitations/{id}/decline` | token | → 204 | The owner sees `declined`; they can re-invite later |
 | DELETE | `/api/family-memberships/{owner}` | token | → 204 | Leave someone's family: deletes the row and my listeners on their watches |
@@ -136,7 +138,7 @@ Everything is additive under `/api`; no existing request or response changes sha
 1. The app posts `name, email, password, device_name` (plus `invite_token` when it has one) to `/api/auth/register`.
 2. The API claims the matching unclaimed placeholder or creates a new user, accepts the invitation if a token came with it, and issues a Sanctum token named after the device.
 3. The app runs the same post-sign-in step as login today: mirror the user, store the token, sign in locally, enroll in push.
-4. A verification email goes out. Nothing is blocked on it, but password reset and invitations by email match only verified addresses.
+4. A verification email goes out. Nothing is blocked on it, with one exception. An account claimed by email alone, with no invite token, doesn't see the placeholder's pending invitations until the address is verified. Otherwise anyone could take over a placeholder by typing its email.
 
 ### Google and Apple sign-in
 
@@ -164,7 +166,7 @@ The callback checks these in order and stops at the first match:
 
 1. A `social_identities` row matches (`provider`, `sub`): sign in as that user.
 2. `intent=link` with a valid `link_ticket`: attach the identity to that user.
-3. An `invite_token` whose invited user is unclaimed: claim that placeholder. Attach the identity, take the name and email from the provider, and accept the family link. This is what makes Apple private-relay addresses work: the token identifies the invitee, not the email.
+3. An `invite_token` whose invited user is unclaimed: claim that placeholder. Attach the identity, take the name and email from the provider, and accept the family link. If the provider's email already belongs to another account, the placeholder keeps its own email and the provider's is stored only on the identity. This is what makes Apple private-relay addresses work: the token identifies the invitee, not the email.
 4. An `invite_token` whose invited user is already claimed by someone else: resolve the caller by rules 5 and 6, then merge the placeholder into them if it is still unclaimed, and accept.
 5. The provider email is verified (Google `email_verified`, any Apple email) and matches a user: claim it if unclaimed, otherwise link the identity to it.
 6. Otherwise create a new user.
@@ -219,7 +221,7 @@ Every sign-in method ends in one shared action, and invite links work whether or
 | `Auth\Register` (new) | Name, email, password; picks up a stored invite token |
 | `Auth\ForgotPassword` (new) | Email field; posts to `/api/auth/forgot-password` |
 | Invite landing (new, guest route `invite/{token}`) | Shows "Bob invited you to see his flights" from the preview endpoint. Signed out: the three sign-up options. Signed in: Accept and Decline. |
-| `FamilyMembers` | A Pending, Accepted or Declined badge per row; a Share invite button on pending rows opens the share sheet with `invite_url` |
+| `FamilyMembers` | A Pending, Accepted or Declined badge per row; a Share invite button on pending and declined rows calls the invite endpoint, which rotates the link, and opens the share sheet with `invite_url` |
 | Dashboard or `UserMenu` | A card listing incoming requests from `/api/family-invitations`, with Accept and Decline |
 | `Settings\Profile` | Linked sign-in methods with link and unlink; set or change password; sign out everywhere |
 | `Settings\DeleteUserForm` | Calls `DELETE /api/me`, then signs out locally |
