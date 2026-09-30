@@ -70,7 +70,9 @@ return [
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
-            'after_commit' => false,
+            // Hold jobs dispatched inside a transaction until it commits,
+            // as the database driver does implicitly.
+            'after_commit' => true,
         ],
 
         'deferred' => [

@@ -45,99 +45,18 @@ Only ports 22, 80 and 443 face the internet. MySQL and Valkey accept connections
 
 ## 0. App changes for Valkey
 
-Moving the queue from the `jobs` table to Valkey needs two code changes. Merge them before the first deploy, because the deploy workflow in step 9 runs the tests.
+These are already on `master`. This machine runs the queue on a local Valkey, so the code has been exercised against a real worker.
 
-**Queue jobs only after the transaction commits.** `MaintenanceNightly::handle()` dispatches `EnableWatch` and `DisableWatch` inside `DB::transaction()`. With the database queue, those jobs appear only on commit and vanish on rollback. Redis pushes them at once, so a worker could act on a watch before the commit, or after a rollback. In `config/queue.php`:
+- **Queue driver.** `QUEUE_CONNECTION=redis`. Laravel's `redis` driver talks to Valkey unchanged through `phpredis`, and `composer.json` requires `ext-redis`.
+- **Jobs wait for the transaction to commit.** `MaintenanceNightly::handle()` dispatches `EnableWatch` and `DisableWatch` inside `DB::transaction()`. The database queue hid those jobs until commit. Valkey receives them at once, so the `redis` connection sets `after_commit => true` in `config/queue.php`.
+- **The health check can fail on Valkey.** `HealthCheckSvc::queue()` asks the queue connection for the creation time of its oldest pending job (`creationTimeOfOldestPendingJob()`, which both the database and redis drivers implement) and fails once that is older than `HEALTH_QUEUE_MAX_WAIT`. Its heartbeat job means a stopped worker always leaves something waiting.
+- **`db:clear`** clears the queue through the driver instead of truncating `jobs`.
 
-```php
-'redis' => [
-    'driver' => 'redis',
-    'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
-    'queue' => env('REDIS_QUEUE', 'default'),
-    'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
-    'block_for' => null,
-    'after_commit' => true,   // was false
-],
-```
-
-**Make the health check's Redis branch able to fail.** `HealthCheckSvc::queue()` returns OK for any non-database driver, so a dead worker would go unnoticed. The fix records when a heartbeat was queued and clears the record when the job runs; a heartbeat still waiting after `HEALTH_QUEUE_MAX_WAIT` fails the check. In `app/Services/HealthCheckSvc.php`:
-
-```php
-public const HEARTBEAT_PENDING_KEY = 'health:heartbeat_pending_since';
-
-public function queue(): array {
-    $connection = config('queue.default');
-    $driver = config("queue.connections.{$connection}.driver");
-
-    if ($driver === 'sync') {
-        return self::result(self::OK, 'Jobs run synchronously; no worker needed.');
-    }
-
-    if (Cache::add('health:heartbeat_dispatched', true, 60)) {
-        // add(): keeps the original time if an earlier heartbeat is still waiting
-        Cache::add(self::HEARTBEAT_PENDING_KEY, now()->toIso8601String());
-        HealthHeartbeat::dispatch();
-    }
-
-    $lastHeartbeat = Cache::get(HealthHeartbeat::CACHE_KEY);
-    $maxWait = config('health.queue_max_wait');
-
-    if ($driver !== 'database') {
-        $pendingSince = Cache::get(self::HEARTBEAT_PENDING_KEY);
-        $details = [
-            'pending' =>                 Queue::size(),
-            'last_heartbeat' =>          $lastHeartbeat,
-            'heartbeat_pending_since' => $pendingSince,
-        ];
-
-        if ($pendingSince && (int) Carbon::parse($pendingSince)->diffInSeconds(now()) > $maxWait) {
-            return self::result(self::FAIL,
-                "Heartbeat waiting over {$maxWait}s; is the queue worker running?",
-                $details
-            );
-        }
-
-        return self::result(self::OK, 'Worker is processing jobs.', $details);
-    }
-
-    // ... database branch unchanged (drop its own $maxWait line)
-}
-```
-
-Then in `app/Jobs/HealthHeartbeat.php`:
-
-```php
-public function handle(): void {
-    Cache::forever(self::CACHE_KEY, now()->toIso8601String());
-    Cache::forget(\App\Services\HealthCheckSvc::HEARTBEAT_PENDING_KEY);
-}
-```
-
-**Test.** Add this to `tests/Safe/Http/Controllers/HealthControllerTest.php`. The `null` driver never runs the heartbeat, so the check has to fail once the wait passes:
-
-```php
-public function test_queue_fails_when_the_heartbeat_is_never_processed(): void {
-    config([
-        'queue.connections.nowhere' => ['driver' => 'null'],
-        'queue.default' => 'nowhere',
-    ]);
-
-    // same request helper/headers as the other tests in this file
-    $this->getJson('/health', $this->headers)->assertJsonPath('checks.queue.status', 'ok');
-
-    $this->travel(config('health.queue_max_wait') + 1)->seconds();
-
-    $this->getJson('/health', $this->headers)->assertJsonPath('checks.queue.status', 'fail');
-}
-```
+Run the Safe suite against MySQL (`phpunit-safe.xml` uses SQLite, where SmokeTest fails):
 
 ```bash
-$ vendor/bin/phpunit -c phpunit-safe.xml
+$ vendor/bin/phpunit -c phpunit.xml tests/Safe
 ```
-
-**Optional.** `db:clear` (`DbClear`) truncates the `jobs` table, which doesn't touch a Redis queue. Add `$this->call('queue:clear', ['connection' => 'redis']);` if you use it in development.
-
-Local development can stay on `QUEUE_CONNECTION=database`, because both drivers now have a working health check.
 
 ## 1. Create the droplet, databases and firewall
 
