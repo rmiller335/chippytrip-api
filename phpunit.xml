@@ -31,6 +31,20 @@
 		<env name="DB_USERNAME" value="chippy_test"/>
 		<env name="DB_PASSWORD" value="6Qy3yhkktZNNtYYT98udyOdq"/>
 
+		<!-- Dummy values so tests run without .env/.env.testing (e.g. in CI).
+		     All outbound HTTP is faked; tests match on these paths, not hosts. -->
+		<env name="APP_KEY" value="base64:Y2hpcHB5dHJpcC10ZXN0LWtleS1ub3Qtc2VjcmV0ISE="/>
+		<env name="FLIGHTAWARE_URL" value="https://flightaware.test"/>
+		<env name="FLIGHTAWARE_CALLBACK" value="https://chippytrip.test/flightaware/callback"/>
+		<env name="FLIGHTAWARE_KEY" value="test"/>
+		<env name="FLIGHTSERVICE_URL" value="https://flightservice.test"/>
+		<env name="FLIGHTSERVICE_HOST" value="flightservice.test"/>
+		<env name="FLIGHTSERVICE_KEY" value="test"/>
+		<env name="TIMEZONE_BASE_URL" value="https://timezonedb.test"/>
+		<env name="TIMEZONE_KEY" value="test"/>
+		<env name="AIRLABS_URL" value="https://airlabs.test"/>
+		<env name="AVIATIONEDGE_URL" value="https://aviationedge.test"/>
+
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

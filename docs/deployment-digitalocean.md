@@ -480,14 +480,27 @@ concurrency: deploy-production
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      # Matches the test database in phpunit.xml.
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: chippytrip_api_testing
+          MYSQL_USER: chippy_test
+          MYSQL_PASSWORD: 6Qy3yhkktZNNtYYT98udyOdq
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mailparse, pdo_sqlite, gd, zip, intl, bcmath
+          extensions: mailparse, pdo_mysql, redis, gd, zip, intl, bcmath
       - run: composer install --no-interaction --no-progress
-      - run: vendor/bin/phpunit -c phpunit-safe.xml
+      - run: vendor/bin/phpunit -c phpunit.xml tests/Safe
 
   deploy:
     needs: test
@@ -516,7 +529,7 @@ jobs:
 
 This script differs from the earlier examples in a few ways:
 
-- **Tests first.** `phpunit-safe.xml` runs `tests/Safe` against in-memory SQLite with faked HTTP, so it needs no database or API keys and works in CI. The `tests/Feature` suite, including `WatchCallbackTest`, stays local because it depends on `bin/sync-test-db`.
+- **Tests first, on MySQL.** The job runs `tests/Safe` against a throwaway MySQL 8.0 service container, the same engine as production, using the credentials in `phpunit.xml`. `phpunit.xml` also sets dummy API URLs and an `APP_KEY`, and every outbound request is faked, so no `.env` or API keys are needed. `ext-redis` is installed only because `composer.json` requires it; the tests use the `sync` queue. The `tests/Feature` suite, including `WatchCallbackTest`, stays local because it depends on `bin/sync-test-db`.
 - **No `php artisan down`.** Maintenance mode would return 503 to FlightAware and Postmark webhooks mid-deploy.
 - **`git reset --hard` instead of `pull`.** The server never has local changes, so this can't get stuck on a merge. Gitignored files (`.env`, `storage/app/firebase`) are left alone.
 - **`queue:restart`.** Workers finish their current job and exit, and Supervisor restarts them on the new code.
