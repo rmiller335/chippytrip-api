@@ -139,33 +139,19 @@ class HealthCheckSvc {
 			HealthHeartbeat::dispatch();
 		}
 
-		$lastHeartbeat = Cache::get(HealthHeartbeat::CACHE_KEY);
-
-		if ($driver !== 'database') {
-			return self::result(self::OK, 'Heartbeat dispatched.', [
-				'pending' =>		Queue::size(),
-				'last_heartbeat' =>	$lastHeartbeat,
-			]);
-		}
-
 		$maxWait = config('health.queue_max_wait');
-		$jobs = DB::connection(config("queue.connections.{$connection}.connection"))
-			->table(config("queue.connections.{$connection}.table", 'jobs'));
-
-		$pending = (clone $jobs)->whereNull('reserved_at')->count();
-		$stuck = (clone $jobs)
-			->whereNull('reserved_at')
-			->where('available_at', '<=', now()->subSeconds($maxWait)->getTimestamp())
-			->count();
+		$queue = Queue::connection($connection);
+		$oldest = $queue->creationTimeOfOldestPendingJob();
+		$waited = null === $oldest ? 0 : now()->getTimestamp() - $oldest;
 
 		$details = [
-			'pending' =>		$pending,
-			'last_heartbeat' =>	$lastHeartbeat,
+			'pending' =>		$queue->pendingSize(),
+			'last_heartbeat' =>	Cache::get(HealthHeartbeat::CACHE_KEY),
 		];
 
-		if ($stuck > 0) {
+		if ($waited > $maxWait) {
 			return self::result(self::FAIL,
-				"{$stuck} job(s) waiting over {$maxWait}s; is the queue worker running?",
+				"Oldest job has waited {$waited}s (over {$maxWait}s); is the queue worker running?",
 				$details
 			);
 		}

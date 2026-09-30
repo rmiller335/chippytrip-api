@@ -13,6 +13,7 @@ use Illuminate\Console\Command;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 
 // =============================================================================
 #[Signature('db:clear')]
@@ -48,7 +49,7 @@ class DbClear extends Command {
 			}
 		});
 
-		DB::table('jobs')->truncate();
+		Queue::clear('default');
 		DB::table('failed_jobs')->truncate();
     }
 }
