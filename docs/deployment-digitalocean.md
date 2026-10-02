@@ -10,7 +10,7 @@ Replace these placeholders throughout:
 
 | Placeholder | Meaning |
 | --- | --- |
-| `nyc3` | Region (closest to Rochester). Droplet and both databases must share it. |
+| `nyc1` | Region (closest to Rochester). Droplet and both databases must share it. |
 | `DROPLET_IP` | Droplet's public IPv4 |
 | `api.chippytrip.com` | Production hostname: the one madsci serves today (see step 10) |
 | `api-do.chippytrip.com` | Temporary hostname for testing before cutover |
@@ -26,7 +26,7 @@ flowchart LR
     GH[GitHub Actions<br/>SSH deploy on push] --> WEB
     FA[FlightAware<br/>AeroAPI alert webhooks] --> WEB
     PM[Postmark<br/>inbound email webhook] --> WEB
-    subgraph VPC[DigitalOcean VPC · nyc3]
+    subgraph VPC[DigitalOcean VPC · nyc1]
         subgraph DROPLET[Droplet · Ubuntu 24.04]
             WEB[Apache · TLS via certbot] --> PHP[PHP-FPM · Laravel API]
             WORKER[Queue worker · Supervisor]
@@ -68,14 +68,14 @@ $ doctl compute ssh-key import rmiller --public-key-file ~/.ssh/id_ed25519.pub
 $ doctl compute ssh-key list          # note the fingerprint
 
 $ doctl compute droplet create chippytrip-api \
-    --region nyc3 --size s-1vcpu-2gb --image ubuntu-24-04-x64 \
+    --region nyc1 --size s-1vcpu-2gb --image ubuntu-24-04-x64 \
     --ssh-keys <fingerprint> --enable-monitoring --enable-backups --wait
 
 $ doctl databases create chippytrip-mysql --engine mysql --version 8 \
-    --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1
+    --region nyc1 --size db-s-1vcpu-1gb --num-nodes 1
 
 $ doctl databases create chippytrip-valkey --engine valkey --version 8 \
-    --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1
+    --region nyc1 --size db-s-1vcpu-1gb --num-nodes 1
 
 $ doctl compute droplet list          # droplet ID + public IP
 $ doctl databases list                # database IDs
@@ -208,13 +208,57 @@ mysql -h private-chippytrip-mysql-do-user-XXXX-0.X.db.ondigitalocean.com \
 
 The existing data is copied over in step 10.
 
-Two things in the repo assume your dev machine can reach the production database: `bin/sync-test-db`, which dumps from `DB_*` in your local `.env`, and the `production_ro` connection (`PROD_DB_*`). To keep using them after the move, add your home IP as a trusted source:
+Two things in the repo assume your dev machine can reach the production database: `bin/sync-test-db`, which dumps from `DB_*` in your local `.env`, and the `production_ro` connection (`PROD_DB_*`). DBeaver needs the same access. `production_ro` has no SSL CA option in `config/database.php`, so add an `options` entry like the `mysql` connection's before pointing it at DO.
 
-```bash
-$ doctl databases firewalls append <mysql-id> --rule ip_addr:<home-ip>
+### Reaching the databases from home over WireGuard
+
+The home LAN (`10.10.22.0/24`, behind pfSense) reaches the VPC through the existing WireGuard hub on the `nagios` droplet, which sits in the same VPC (`default-nyc1`, `10.136.0.0/16`). nagios masquerades the traffic, so the databases see nagios as the source and only nagios needs to be a trusted source. This works from anywhere on the VPN and doesn't break when the home IP changes.
+
+```mermaid
+flowchart LR
+    LAN[Home LAN<br/>10.10.22.0/24] --> PF[pfSense<br/>10.99.0.2]
+    PF -- WireGuard --> NAG[nagios<br/>10.99.0.1 / 10.136.169.26]
+    NAG -- masquerade --> DB[(MySQL · Valkey<br/>private hostnames)]
 ```
 
-Use the public hostname from your dev machine. `production_ro` has no SSL CA option in `config/database.php`, so add an `options` entry like the `mysql` connection's before pointing it at DO.
+**1. Trust nagios on both clusters:**
+
+```bash
+$ doctl databases firewalls append <mysql-id>  --rule droplet:<nagios-droplet-id>
+$ doctl databases firewalls append <valkey-id> --rule droplet:<nagios-droplet-id>
+```
+
+**2. On nagios, masquerade VPN traffic into the VPC.** In `/etc/wireguard/wg0.conf` (forwarding is already enabled by an earlier `PostUp`), keeping each line whole:
+
+```ini
+PostUp   = iptables -t nat -A POSTROUTING -s 10.10.22.0/24 -d 10.136.0.0/16 -o eth1 -j MASQUERADE; iptables -t nat -A POSTROUTING -s 10.99.0.0/24 -d 10.136.0.0/16 -o eth1 -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -s 10.10.22.0/24 -d 10.136.0.0/16 -o eth1 -j MASQUERADE; iptables -t nat -D POSTROUTING -s 10.99.0.0/24 -d 10.136.0.0/16 -o eth1 -j MASQUERADE
+```
+
+`10.10.22.0/24` covers the home LAN via pfSense; `10.99.0.0/24` covers road-warrior peers (laptop, X2000). `eth1` is nagios's VPC interface (`ip -br addr | grep 10.136`). Then `sudo systemctl restart wg-quick@wg0`, which briefly drops every peer.
+
+**3. On pfSense, route the VPC into the tunnel:**
+
+- **VPN → WireGuard → Peers → nagios**: add `10.136.0.0/16` to Allowed IPs, Keep Alive `25` (so the tunnel re-handshakes after a WAN → LTE failover).
+- **System → Routing → Gateways**: add `WG_NAGIOS_GW` on the WireGuard interface, gateway `10.99.0.1`. Leave the default gateway set to the WAN failover group.
+- **System → Routing → Static Routes**: `10.136.0.0/16` via `WG_NAGIOS_GW`.
+- **Firewall → Rules → LAN**: at the top, pass *LAN subnets* → `10.136.0.0/16` with gateway *Default*. Without it, the LAN rule that policy-routes to the WAN failover group sends VPC traffic out to the ISP and the static route is ignored. (Diagnostics → Ping from pfSense itself succeeds either way, since the LAN rules don't apply to it — a good way to tell the two problems apart.)
+- **Services → DNS Resolver → General Settings → Custom options**: DNS rebind protection strips the private hostnames' `10.136.x` answers, so allow them:
+  ```
+  server:
+  private-domain: "db.ondigitalocean.com"
+  ```
+
+**4. Connect** with the **private** hostname (`private-chippytrip-mysql-…`, port `25060`) and the CA certificate, never the bare IP: TLS verifies the hostname, and the IP can change on maintenance or resize. To check the path from the LAN:
+
+```bash
+getent hosts private-chippytrip-mysql-<...>.db.ondigitalocean.com   # 10.136.x
+nc -vz private-chippytrip-mysql-<...>.db.ondigitalocean.com 25060
+```
+
+If pings to `10.136.169.26` (nagios's VPC address) work but the databases don't answer, the masquerade on nagios is missing. If even that fails and a traceroute leaves via the ISP, it's the pfSense LAN rule.
+
+The simpler alternative is the home IP as a trusted source (`--rule ip_addr:<home-ip>`, then the public hostname). It breaks whenever the ISP changes the address, and when pfSense fails over to LTE.
 
 ## 5. Configure Valkey
 
