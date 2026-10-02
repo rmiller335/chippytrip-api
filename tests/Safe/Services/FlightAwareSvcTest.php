@@ -2,7 +2,10 @@
 
 namespace Tests\Safe\Services;
 
+use App\Models\Airline;
+use App\Models\Country;
 use App\Services\FlightAwareSvc;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Tests\Safe\TestCase;
 
@@ -65,6 +68,32 @@ class FlightAwareSvcTest extends TestCase {
 		$match = (new FlightAwareSvc())->flightSchedule($flight);
 
 		$this->assertSame('B738', $match->aircraft_type);
+	}
+
+	// =========================================================================
+	public function test_schedule_for_ident_sends_icao_airline_and_numeric_flight_number(): void {
+		Country::create(['iso2' => 'GB', 'iso3' => 'GBR', 'name' => 'United Kingdom', 'dominion' => '']);
+		Airline::create([
+			'icao' => 'VIR', 'iata' => 'VS', 'call_sign' => 'VIRGIN', 'name' => 'Virgin Atlantic',
+			'country_code' => 'GB', 'status' => 'active', 'types' => ['M'],
+		]);
+
+		Http::fake(['*/schedules/*' => Http::response(['scheduled' => []], 200)]);
+
+		$svc = new FlightAwareSvc();
+		$svc->scheduleForIdent('VS3', Carbon::parse('2026-07-01'));
+		$svc->scheduleForIdent('VIR3', Carbon::parse('2026-07-01'));
+
+		$sent = Http::recorded()->map(function ($pair) {
+			parse_str(parse_url($pair[0]->url(), PHP_URL_QUERY), $query);
+			return $query;
+		});
+
+		$this->assertCount(2, $sent);
+		foreach($sent as $query) {
+			$this->assertSame('VIR', $query['airline']);
+			$this->assertSame('3', $query['flight_number']);
+		}
 	}
 
 	// =========================================================================

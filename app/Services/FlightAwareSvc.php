@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Airline;
 use App\Models\Flight;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 // =============================================================================
 class FlightAwareSvc {
@@ -92,12 +92,20 @@ class FlightAwareSvc {
 		// 2-character prefix that may include a digit (e.g. B6, 9E, U2).
 		// A letter in the 3rd position means ICAO — otherwise assume IATA.
 		$prefixLength = (strlen($ident) > 2 && ctype_alpha($ident[2])) ? 3 : 2;
+		$prefix = substr($ident, 0, $prefixLength);
 		$flightNumber = (int) substr($ident, $prefixLength) ?: null;
+
+		// AeroAPI wants the ICAO airline code, so translate an IATA prefix.
+		// If the airline isn't in our table, pass the prefix through as-is.
+		$airline = (3 == $prefixLength)
+			? $prefix
+			: (Airline::where('iata', $prefix)->value('icao') ?: $prefix);
 
 		$resp = Http::withHeaders([
 			'x-apikey' =>	$this->key,
 		])
 		->withQueryParameters(array_filter([
+			'airline' =>		$airline,
 			'flight_number' =>	$flightNumber,
 		]))
 		->get($url);
@@ -315,18 +323,12 @@ class FlightAwareSvc {
 	// =========================================================================
 	public function watchDelete(string $watchId) {
 		$url = $this->url . '/alerts/' . $watchId;
-		Log::debug("watchDelete: $url");
 
 		$resp = Http::withHeaders([
 			'x-apikey' =>	$this->key,
 		])
 			->delete($url)
 		;
-
-		Log::debug("AeroAPI delete alert response\n" . json_encode([
-			'status' => $resp->status(),
-			'successful' => $resp->successful(),
-		], JSON_PRETTY_PRINT));
 	}
 
 	// =========================================================================
