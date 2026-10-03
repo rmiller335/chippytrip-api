@@ -1,10 +1,10 @@
 # Chippytrip API — DigitalOcean Deployment Runbook
 
-_Last updated 2026-09-30._
+_Last updated 2026-10-03._
 
 ## Overview
 
-One Ubuntu 24.04 droplet runs Apache, PHP-FPM, the queue worker, and the hourly `maintenance:nightly` cron. Over DigitalOcean's private VPC it uses two managed databases. MySQL holds app data and failed jobs. Valkey holds the job queue and the cache. Every push to `master` runs the Safe test suite on GitHub Actions, then SSHes in and deploys.
+One Ubuntu 24.04 droplet runs Apache, PHP-FPM, the queue worker, and the hourly `maintenance:nightly` cron. Over DigitalOcean's private VPC it uses two managed databases. MySQL holds app data and failed jobs. Valkey holds the job queue and the cache. Every push to `master` runs the Safe test suite on GitHub Actions. Pushing a `v*` tag deploys that commit over SSH, once its tests have passed.
 
 Replace these placeholders throughout:
 
@@ -23,7 +23,7 @@ Commands prefixed with `$` run on your own machine. Everything else runs on the 
 
 ```mermaid
 flowchart LR
-    GH[GitHub Actions<br/>SSH deploy on push] --> WEB
+    GH[GitHub Actions<br/>SSH deploy on v* tag] --> WEB
     FA[FlightAware<br/>AeroAPI alert webhooks] --> WEB
     PM[Postmark<br/>inbound email webhook] --> WEB
     subgraph VPC[DigitalOcean VPC · nyc1]
@@ -515,21 +515,37 @@ Create `.github/workflows/deploy.yml`:
 ```yaml
 name: Deploy
 on:
-  # Runs after the Tests workflow (.github/workflows/tests.yml) finishes on master.
-  workflow_run:
-    workflows: [Tests]
-    types: [completed]
-    branches: [master]
+  # Deploy by pushing a version tag: git tag v1.2.0 && git push origin v1.2.0
+  push:
+    tags: ['v*']
   workflow_dispatch:
 
 concurrency: deploy-production
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   deploy:
-    # Manual runs skip the check; automatic runs deploy only if Tests passed.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
+      - name: Require passing Tests on this commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh run list -R "$GITHUB_REPOSITORY" \
+            --workflow tests.yml \
+            --commit "$GITHUB_SHA" \
+            --status success \
+            --json databaseId --jq length)
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::Tests has not passed on $GITHUB_SHA."
+            echo "Wait for Tests on master, then re-run this job."
+            exit 1
+          fi
+
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
@@ -539,13 +555,13 @@ jobs:
 
       - name: Deploy
         env:
-          # The commit Tests passed on; a manual run deploys the tip of master.
-          REF: ${{ github.event.workflow_run.head_sha || 'origin/master' }}
+          # The tagged commit, or the commit of the ref picked in a manual run.
+          REF: ${{ github.sha }}
         run: |
           ssh deploy@${{ secrets.DEPLOY_HOST }} "REF=$REF bash -se" <<'EOF'
           set -e
           cd /var/www/chippytrip-api
-          git fetch origin master
+          git fetch origin master --tags
           git reset --hard "$REF"
           composer install --no-dev --optimize-autoloader --no-interaction
           php artisan migrate --force
@@ -556,13 +572,23 @@ jobs:
 
 This script differs from the earlier examples in a few ways:
 
-- **Tests first, on MySQL.** Deploys start only after the Tests workflow (`.github/workflows/tests.yml`, already in the repo) passes on `master`, and they deploy the exact commit it tested. That workflow runs `tests/Safe` against a throwaway MySQL 8.0 service container, the same engine as production. Its job-level `DB_*` variables override the ones in `phpunit.xml`, which also sets dummy API URLs and an `APP_KEY`; every outbound request is faked, so no `.env` or API keys are needed. The `tests/Feature` suite, including `WatchCallbackTest`, stays local because it depends on `bin/sync-test-db`.
+- **Deploys on tags, tests first.** Pushes to `master` only run the Tests workflow (`.github/workflows/tests.yml`, already in the repo). Pushing a `v*` tag deploys the tagged commit, but only if Tests has already passed on that exact commit; otherwise the job fails before touching the server, and you can re-run it once Tests goes green. Tests runs `tests/Safe` against a throwaway MySQL 8.0 service container, the same engine as production. Its job-level `DB_*` variables override the ones in `phpunit.xml`, which also sets dummy API URLs and an `APP_KEY`; every outbound request is faked, so no `.env` or API keys are needed. The `tests/Feature` suite, including `WatchCallbackTest`, stays local because it depends on `bin/sync-test-db`.
 - **No `php artisan down`.** Maintenance mode would return 503 to FlightAware and Postmark webhooks mid-deploy.
 - **`git reset --hard` instead of `pull`.** The server never has local changes, so this can't get stuck on a merge. Gitignored files (`.env`, `storage/app/firebase`) are left alone.
 - **`queue:restart`.** Workers finish their current job and exit, and Supervisor restarts them on the new code.
 - **`php artisan optimize` is safe.** No code under `app/` or `routes/` calls `env()` directly, so config caching doesn't break anything.
 
-Test the pipeline with **Actions → Deploy → Run workflow** before relying on pushes.
+Test the pipeline with **Actions → Deploy → Run workflow** (on `master`) before relying on tags. Manual runs skip the Tests check and deploy the tip of the branch you pick.
+
+To release, wait for Tests to pass on `master`, then tag that commit:
+
+```bash
+$ git pull
+$ git tag v1.0.0
+$ git push origin v1.0.0
+```
+
+Watch the run under **Actions → Deploy**. To roll back, run the workflow manually and pick an earlier tag in the **Use workflow from** list. That rolls back code only; migrations stay applied.
 
 ## 10. Cut over from madsci
 
