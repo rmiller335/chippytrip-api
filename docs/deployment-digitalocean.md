@@ -13,8 +13,7 @@ Replace these placeholders throughout:
 | `nyc1` | Region (closest to Rochester). Droplet and both databases must share it. |
 | `DROPLET_IP` | Droplet's public IPv4 |
 | `HOME_IP` | Your home public IPv4 (`curl -4 ifconfig.me`) |
-| `api.chippytrip.com` | Production hostname: the one madsci serves today (see step 10) |
-| `api-do.chippytrip.com` | Temporary hostname for testing before cutover |
+| `api.chippytrip.com` | Production hostname. `madsci` stays the dev server at `api-dev.chippytrip.com`. |
 | `/var/www/chippytrip-api` | App directory |
 | `rmiller335/chippytrip-api` | GitHub repo |
 | `<mysql-id>`, `<valkey-id>`, `<droplet-id>` | IDs from `doctl ... list` |
@@ -102,7 +101,7 @@ $ doctl compute firewall create --name chippytrip-fw \
 
 Port 22 stays open to the world because GitHub's runner IPs change constantly. Key-only SSH (step 2) is what protects it.
 
-Last, point `api-do.chippytrip.com` at `DROPLET_IP` with an A record now, so TLS can be issued in step 7.
+Last, point `api.chippytrip.com` at `DROPLET_IP` with an A record now, so TLS can be issued in step 7.
 
 ## 2. Harden the droplet
 
@@ -257,7 +256,7 @@ mysql -h private-chippytrip-mysql-do-user-XXXX-0.X.db.ondigitalocean.com \
 
 **Primary keys.** DO enables `sql_require_primary_key` by default. Every table created in `database/migrations` already has a primary key, so leave the setting on.
 
-The existing data is copied over in step 10.
+Production starts with an empty database. Nothing is copied from `madsci`, which stays the dev server with its own data.
 
 Two things in the repo assume your dev machine can reach the production database: `bin/sync-test-db`, which dumps from `DB_*` in your local `.env`, and the `production_ro` connection (`PROD_DB_*`). DBeaver needs the same access. `production_ro` has no SSL CA option in `config/database.php`, so add an `options` entry like the `mysql` connection's before pointing it at DO.
 
@@ -387,7 +386,7 @@ Edit `.env`:
 ```
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://<production hostname>
+APP_URL=https://api.chippytrip.com
 APP_KEY=            # leave blank; generated below
 
 LOG_STACK=daily
@@ -442,13 +441,14 @@ php artisan key:generate --force
 grep ^APP_KEY= .env
 ```
 
-A new key is safe for this app. Nothing uses `encrypted` casts or `Crypt`, queued jobs aren't encrypted, Sanctum stores plain SHA-256 token hashes, and there are no web sessions, so existing API tokens keep working. Only a password-reset link requested on `madsci` before cutover would stop working. If you later add encrypted data and rotate the key, list the old one in `APP_PREVIOUS_KEYS` so that data stays readable.
+Production has its own database, so nothing in it was ever encrypted with `madsci`'s key, and sharing a key between dev and production only widens what a leaked dev `.env` exposes. Nothing in the app uses `encrypted` casts or `Crypt` today. If you add encrypted data later and rotate the key, list the old one in `APP_PREVIOUS_KEYS` so that data stays readable.
 
 Finally, lock down `.env` and check both connections:
 
 ```bash
 chmod 600 .env
 php artisan about
+php artisan migrate --force       # creates the schema
 php artisan migrate:status        # proves the MySQL connection
 php artisan tinker --execute="cache()->put('t', 1, 60); dump(cache()->get('t'));"
 exit    # back to rmiller
@@ -456,15 +456,13 @@ exit    # back to rmiller
 
 ## 7. Apache and TLS
 
-Serve the test hostname first. The production name gets added at cutover.
-
 Create `/etc/apache2/sites-available/chippytrip-api.conf`. The repo gitignores `public/.htaccess`, so a fresh clone has none, and the vhost carries the rules itself.
 
 Two lines do the work of the missing file. `FallbackResource` routes every request to `index.php`. `SetEnvIf Authorization` passes the header through to PHP-FPM, which needs it for both Sanctum bearer tokens and the Postmark inbound basic auth. Without that line, every authenticated request returns 401.
 
 ```apache
 <VirtualHost *:80>
-    ServerName api-do.chippytrip.com
+    ServerName api.chippytrip.com
     DocumentRoot /var/www/chippytrip-api/public
 
     <Directory /var/www/chippytrip-api/public>
@@ -493,7 +491,7 @@ sudo a2dissite 000-default
 sudo a2ensite chippytrip-api
 sudo apache2ctl configtest && sudo systemctl reload apache2
 
-sudo certbot --apache -d api-do.chippytrip.com
+sudo certbot --apache -d api.chippytrip.com
 sudo certbot renew --dry-run
 ```
 
@@ -535,11 +533,11 @@ With the step 0 change, the `/health` queue check fails if a heartbeat job waits
 Add it to the `deploy` user's crontab (`sudo crontab -u deploy -e`):
 
 ```
-# enable at cutover (step 10)
+# enable when going live (step 10)
 # 17 * * * * cd /var/www/chippytrip-api && php artisan maintenance:nightly >> storage/logs/maintenance.log 2>&1
 ```
 
-The repo doesn't record the rest of the cron setup. Run `crontab -l` on `madsci` and copy any other entries you rely on (e.g. `airlines:update`, `airports:update`, `notifications:audit`, `watch:cleanup`). Leave them **commented out** until cutover (step 10), so the two servers never run maintenance at the same time.
+The repo doesn't record the rest of the cron setup. Run `crontab -l` on `madsci` and copy any other entries you rely on (e.g. `airlines:update`, `airports:update`, `notifications:audit`, `watch:cleanup`). Leave them **commented out** until step 10, and read its warning about the shared FlightAware key before enabling `maintenance:nightly` or `watch:cleanup`.
 
 ## 9. GitHub Actions deploy
 
@@ -648,64 +646,43 @@ $ git push origin v1.0.0
 
 Watch the run under **Actions → Deploy**. To roll back, run the workflow manually and pick an earlier tag in the **Use workflow from** list. That rolls back code only; migrations stay applied.
 
-## 10. Cut over from madsci
+## 10. Go live
 
-**Keep the hostname `madsci` serves today.** Each FlightAware alert stores its own `target_url`, which is `FLIGHTAWARE_CALLBACK` plus `?s=<watch secret>`, fixed when the alert is created (`FlightAwareSvc::watchCreate()`). A new hostname would leave every existing alert calling `madsci`. Moving the DNS record carries the alerts and the Postmark webhook over without touching either service.
+The droplet is a new production server, not a replacement for `madsci`. `madsci` stays the dev server at `api-dev.chippytrip.com`, with its own database. Production starts empty and fills as users add flights.
 
-**Stop `madsci`'s cron before the droplet's starts.** `maintenance:nightly` deletes every FlightAware alert with no matching watch in *its own* database. If `madsci` keeps running it after cutover, it will delete every alert the droplet creates.
+**Shared FlightAware key: the two servers delete each other's alerts.** `maintenance:nightly` (`pruneAlerts()`) and `watch:cleanup` list every alert on the FlightAware account and delete any whose id has no watch in *their own* database. While dev and production use the same `FLIGHTAWARE_KEY`, each server sees the other's alerts as orphans and deletes them:
 
-**The day before**
+- `madsci`'s hourly run deletes every production alert.
+- Production's run deletes every dev alert.
 
-1. Lower the TTL on the production A record to 300 seconds.
-2. Make sure `https://api-do.chippytrip.com` serves the app and a manual Actions deploy succeeds.
+Until the two have separate FlightAware keys, pick one of:
 
-**Cutover**
+- **Turn the jobs off on `madsci`.** Comment out `maintenance:nightly` and `watch:cleanup` in its crontab. Dev loses automatic watch enabling and pruning; run `maintenance:nightly` by hand only when no production alerts exist.
+- **Scope the pruning to the server's own alerts.** Change both commands to skip alerts whose `target_url` doesn't start with that server's `FLIGHTAWARE_CALLBACK`. This makes the shared key safe.
 
-1. On `madsci`, comment out every chippytrip entry in `crontab -e`, including `bin/dev-cronjob` if cron starts the worker.
-2. Wait until the jobs table is empty (anything left in it won't carry over to Valkey), then stop the worker (`bin/dev-queue-worker` / `queue:listen`):
+The lasting fix is a separate FlightAware key for dev.
 
-   ```bash
-   php artisan tinker --execute="dump(DB::table('jobs')->count());"
-   ```
-3. Run `php artisan down` on `madsci`. Webhooks now get 503 instead of writing to the old database, and Postmark retries failed inbound deliveries. Keep this window short, because FlightAware events that arrive during it may be lost.
-4. Dump the database on `madsci`. `--set-gtid-purged=OFF` is required because DO's MySQL uses GTIDs.
+**Steps**
 
-   ```bash
-   mysqldump --single-transaction --routines --triggers --no-tablespaces \
-     --set-gtid-purged=OFF -u root -p chippytrip > chippytrip.sql
-   scp chippytrip.sql rmiller@DROPLET_IP:/tmp/
-   ```
-5. Import it from the droplet, which is a trusted source. If the import fails on `DEFINER=` clauses, strip them first with `sed -i 's/DEFINER=[^*]*\*/\*/g' /tmp/chippytrip.sql`.
-
-   ```bash
-   mysql -h private-chippytrip-mysql-do-user-XXXX-0.X.db.ondigitalocean.com \
-     -P 25060 -u chippytrip -p --ssl-mode=REQUIRED chippytrip < /tmp/chippytrip.sql
-   rm /tmp/chippytrip.sql
-   ```
-6. As `deploy` on the droplet, run `php artisan migrate --force` (it should report nothing to migrate) and `php artisan optimize`.
-7. Uncomment the droplet's cron entries (step 8), then start the worker with `sudo supervisorctl start "chippytrip-worker:*"`.
-8. Add the production hostname to Apache. Put `ServerAlias <production hostname>` in both the port-80 vhost and certbot's `-le-ssl.conf` copy, then reload Apache. If `FLIGHTAWARE_CALLBACK` is a full URL, its host must be among these names.
-9. Point the production A record at `DROPLET_IP`. Once it resolves, expand the certificate:
-
-   ```bash
-   sudo certbot --apache -d api-do.chippytrip.com -d <production hostname>
-   ```
+1. Check `FLIGHTAWARE_CALLBACK` in production's `.env` points at `https://api.chippytrip.com/...`. Each alert stores its `target_url` when it's created (`FlightAwareSvc::watchCreate()`), so an alert made with the wrong callback keeps calling the wrong server until it's recreated.
+2. Point the production Postmark inbound webhook at `POSTMARK_INBOUND_URL` on `api.chippytrip.com`, with the inbound basic-auth credentials from production's `.env`.
+3. Deal with the shared key (above), then uncomment the droplet's cron entries (step 8).
+4. Start the worker if it isn't running: `sudo supervisorctl start "chippytrip-worker:*"`.
 
 **Verify**
 
 - [ ] `/health` returns `"status": "ok"`. `maintenance` may warn until the first hourly run.
 
   ```bash
-  curl -s -H "X-Health-Token: <HEALTH_TOKEN>" https://<production hostname>/health | jq
+  curl -s -H "X-Health-Token: <HEALTH_TOKEN>" \
+    https://api.chippytrip.com/health | jq
   ```
 - [ ] `php artisan flight:test-email` posts a sample confirmation to `POSTMARK_INBOUND_URL`. Confirm an `inbound_emails` row is created and parsed.
 - [ ] A real FlightAware callback lands in `watch_callbacks` and the Android app gets the push
-- [ ] `php artisan watch:list` matches the alerts FlightAware still holds
+- [ ] `php artisan watch:list` matches the alerts FlightAware still holds, an hour after `madsci`'s cron would have run
 - [ ] `php artisan notifications:audit` flags no stale flights after a day
 - [ ] Nagios on the home lab polls `/health` with the token and alerts on 503
 - [ ] `storage/logs/laravel-*.log`, `worker.log` and `maintenance.log` are clean
-
-Leave `madsci`'s database untouched, with its cron and worker off, for a week as the rollback. To roll back, repoint DNS, run `php artisan up`, and re-enable its cron. Stop the droplet's cron and worker first.
 
 ## Troubleshooting
 
@@ -715,8 +692,8 @@ Most failures trace back to trusted sources, TLS settings, or file ownership.
 | --- | --- | --- |
 | Every authenticated request returns 401 (app and Postmark) | `Authorization` header not reaching PHP-FPM | Check the `SetEnvIf Authorization` line in both vhosts (step 7) |
 | 404 on every `/api/...` route | No rewrite to `index.php` | `FallbackResource /index.php` in the `<Directory>` block |
-| Alerts created after cutover vanish from FlightAware | `madsci`'s `maintenance:nightly` still running | Comment out its crontab (step 10) |
-| FlightAware callbacks still hit `madsci` | Alerts target the old hostname | Keep that hostname and point it at the droplet |
+| FlightAware alerts vanish on one server | The other server's `maintenance:nightly` or `watch:cleanup` deletes them (shared FlightAware key) | See step 10's warning |
+| Production FlightAware callbacks hit `madsci` | Alert created with the dev `FLIGHTAWARE_CALLBACK` | Fix production's `.env`, then recreate the alert |
 | `/health` `queue` fails | Worker stopped | `sudo supervisorctl status`; `storage/logs/worker.log` |
 | `/health` `maintenance` fails | Cron entry missing or commented out | `sudo crontab -u deploy -l`; `storage/logs/maintenance.log` |
 | `/health` `fcm` fails | `FIREBASE_CREDENTIALS` path wrong or file unreadable | Point it at `storage/app/firebase/...` and check ownership is `deploy` |
