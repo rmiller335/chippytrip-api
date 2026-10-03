@@ -419,9 +419,17 @@ Copy the remaining values from `madsci`'s `.env`. These are what the code reads:
 | Email parsing | `OPENAI_API_KEY`, `OPENAI_FLIGHT_MODEL` |
 | Push | `FCM_PROJECT_ID`, `FIREBASE_CREDENTIALS` |
 | Postmark | `POSTMARK_API_KEY`, `POSTMARK_INBOUND_USER`, `POSTMARK_INBOUND_PASSWORD`, `POSTMARK_INBOUND_URL`, `MAIL_FROM_*` |
-| Health and auth | `HEALTH_TOKEN`, `HEALTH_*`, `LOGIN_RATE_LIMIT*` |
+| Health and auth | `HEALTH_*` (except `HEALTH_TOKEN`, below), `LOGIN_RATE_LIMIT*` |
 
 `OPENAI_*`, `FCM_PROJECT_ID` and `FIREBASE_CREDENTIALS` aren't in `.env.example`, so they're easy to miss.
+
+Give production its own `HEALTH_TOKEN` rather than copying dev's, so the dev token can't read production's health details:
+
+```bash
+openssl rand -hex 32
+```
+
+Set the output as `HEALTH_TOKEN=` in `.env`. Nagios needs the same value (step 11).
 
 The Firebase service-account JSON lives in `storage/app/firebase/`, which is gitignored. Copy that directory from `madsci`, then set `FIREBASE_CREDENTIALS` to its absolute path on the droplet:
 
@@ -681,8 +689,157 @@ The lasting fix is a separate FlightAware key for dev.
 - [ ] A real FlightAware callback lands in `watch_callbacks` and the Android app gets the push
 - [ ] `php artisan watch:list` matches the alerts FlightAware still holds, an hour after `madsci`'s cron would have run
 - [ ] `php artisan notifications:audit` flags no stale flights after a day
-- [ ] Nagios on the home lab polls `/health` with the token and alerts on 503
+- [ ] Nagios checks are green (step 11)
 - [ ] `storage/logs/laravel-*.log`, `worker.log` and `maintenance.log` are clean
+
+## 11. Monitoring with Nagios
+
+Nagios on the `nagios` droplet sits in the same VPC, so it reaches production's private address directly. It watches three things: `/health` over public HTTPS (the path users take), the certificate's expiry, and SSH plus load and swap over the private network.
+
+**1. Health plugin.** `/health` returns `ok` or `degraded` with HTTP 200, and `down` with 503. Without a valid `X-Health-Token` it returns 404. This plugin maps those to Nagios states and names the failing checks. On the nagios droplet, create `/usr/local/lib/nagios/check_chippy_health` (or wherever your custom plugins live):
+
+```sh
+#!/bin/sh
+# Usage: check_chippy_health URL TOKEN
+# ok = OK, degraded = WARNING, down or no JSON = CRITICAL
+url=$1
+token=$2
+
+out=$(curl -s -m 30 -w '\n%{http_code}' \
+    -H "X-Health-Token: $token" "$url")
+code=$(printf '%s\n' "$out" | tail -n 1)
+body=$(printf '%s\n' "$out" | sed '$d')
+
+status=$(printf '%s' "$body" \
+    | jq -r '.status' 2>/dev/null)
+bad=$(printf '%s' "$body" | jq -r '
+    [.checks | to_entries[]
+     | select(.value.status != "ok") | .key]
+    | join(", ")' 2>/dev/null)
+
+case "$status" in
+    ok)
+        echo "OK - all checks pass"
+        exit 0 ;;
+    degraded)
+        echo "WARNING - degraded: $bad"
+        exit 1 ;;
+    down)
+        echo "CRITICAL - down: $bad"
+        exit 2 ;;
+    *)
+        echo "CRITICAL - HTTP $code, no health JSON"
+        exit 2 ;;
+esac
+```
+
+```bash
+sudo apt install -y jq curl
+sudo chmod 755 /usr/local/lib/nagios/check_chippy_health
+sudo -u nagios /usr/local/lib/nagios/check_chippy_health \
+    https://api.chippytrip.com/health <HEALTH_TOKEN>
+```
+
+`CRITICAL - HTTP 404` means the token doesn't match production's `HEALTH_TOKEN`.
+
+**2. Keep the token out of the object files.** Add it to Nagios's `resource.cfg` (readable only by the nagios user), next to `$USER1$`:
+
+```
+$USER10$=<HEALTH_TOKEN>
+```
+
+**3. Host and services.** Use the droplet's private address. The cloud firewall (step 1) blocks ICMP, so check the host with SSH rather than ping. fail2ban already whitelists `10.136.0.0/16`, so these SSH probes never get nagios banned.
+
+```
+define host {
+    use            linux-server
+    host_name      chippytrip-api
+    alias          Chippytrip API (production)
+    address        10.136.126.240
+    check_command  check_ssh
+}
+
+define command {
+    command_name  check_chippy_health
+    command_line  /usr/local/lib/nagios/check_chippy_health \
+                  $ARG1$ $USER10$
+}
+
+define command {
+    command_name  check_cert_expiry
+    command_line  $USER1$/check_http -H $ARG1$ \
+                  -S --sni -C 21,7
+}
+
+define service {
+    use                  generic-service
+    host_name            chippytrip-api
+    service_description  App health
+    check_command        check_chippy_health!\
+                         https://api.chippytrip.com/health
+    check_interval       5
+}
+
+define service {
+    use                  generic-service
+    host_name            chippytrip-api
+    service_description  TLS certificate
+    check_command        check_cert_expiry!api.chippytrip.com
+    check_interval       720
+}
+
+define service {
+    use                  generic-service
+    host_name            chippytrip-api
+    service_description  SSH
+    check_command        check_ssh
+}
+```
+
+Nagios joins a line ending in `\` with the next, so the split lines are fine as written; if `nagios -v` rejects them, join each onto one line. The certificate check warns 21 days before expiry and goes critical at 7. Certbot renews at 30 days, so any alert means renewal is failing.
+
+**4. Load and swap (optional).** `/health` already covers disk space, database, queue and cron. For load and swap, give nagios a key-only login on the droplet and use `check_by_ssh`:
+
+```bash
+# on the droplet
+sudo apt install -y monitoring-plugins-basic
+sudo adduser --disabled-password --gecos "" nagios
+sudo install -d -m 700 -o nagios -g nagios \
+    /home/nagios/.ssh
+# put nagios's public key in
+# /home/nagios/.ssh/authorized_keys (mode 600)
+```
+
+```
+define service {
+    use                  generic-service
+    host_name            chippytrip-api
+    service_description  Load
+    check_command        check_by_ssh!-l nagios -C \
+                         "/usr/lib/nagios/plugins/check_load \
+                         -r -w 1.5,1.2,1 -c 3,2,1.5"
+}
+
+define service {
+    use                  generic-service
+    host_name            chippytrip-api
+    service_description  Swap
+    check_command        check_by_ssh!-l nagios -C \
+                         "/usr/lib/nagios/plugins/check_swap \
+                         -w 50% -c 20%"
+}
+```
+
+This assumes your existing `check_by_ssh` command passes `$ARG1$` through, as it does for `moss`. Check with `sudo -u nagios ssh nagios@10.136.126.240 true` first, so the host key is accepted.
+
+**5. Reload.** Verify the config, then reload:
+
+```bash
+sudo nagios -v /etc/nagios/nagios.cfg
+sudo systemctl reload nagios
+```
+
+Adjust the binary, config path and service name to your install (for example `nagios4` and `/etc/nagios4/nagios.cfg` on Debian/Ubuntu packages).
 
 ## Troubleshooting
 
