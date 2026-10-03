@@ -388,7 +388,7 @@ Edit `.env`:
 APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://<production hostname>
-APP_KEY=            # copy from madsci's .env, don't generate a new one
+APP_KEY=            # leave blank; generated below
 
 LOG_STACK=daily
 
@@ -435,7 +435,14 @@ sudo chown -R deploy:deploy /var/www/chippytrip-api/storage/app/firebase
 sudo chmod 700 /var/www/chippytrip-api/storage/app/firebase
 ```
 
-Reusing `madsci`'s `APP_KEY` matters: anything stored with `encrypted` casts or `Crypt` is unreadable under a new key.
+Generate a fresh `APP_KEY` rather than copying `madsci`'s:
+
+```bash
+php artisan key:generate --force
+grep ^APP_KEY= .env
+```
+
+A new key is safe for this app. Nothing uses `encrypted` casts or `Crypt`, queued jobs aren't encrypted, Sanctum stores plain SHA-256 token hashes, and there are no web sessions, so existing API tokens keep working. Only a password-reset link requested on `madsci` before cutover would stop working. If you later add encrypted data and rotate the key, list the old one in `APP_PREVIOUS_KEYS` so that data stays readable.
 
 Finally, lock down `.env` and check both connections:
 
