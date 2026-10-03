@@ -124,7 +124,11 @@ Edit `/etc/ssh/sshd_config` (or drop a file in `/etc/ssh/sshd_config.d/`):
 PermitRootLogin no
 PasswordAuthentication no
 KbdInteractiveAuthentication no
+AllowUsers rmiller deploy
+PerSourcePenaltyExemptList 10.136.0.0/16
 ```
+
+`AllowUsers` refuses every other login name before keys are even checked; any new login user (such as `nagios` in step 11) must be added here, or its logins fail with `Permission denied (publickey)` and a "not listed in AllowUsers" line in `journalctl -u ssh`. `PerSourcePenaltyExemptList` exempts the VPC from sshd's own penalty system (OpenSSH 9.8+, the `srclimit_penalise` log lines), which briefly refuses addresses that fail or abandon logins.
 
 ```bash
 sshd -t && systemctl restart ssh
@@ -806,9 +810,47 @@ sudo apt install -y monitoring-plugins-basic
 sudo adduser --disabled-password --gecos "" nagios
 sudo install -d -m 700 -o nagios -g nagios \
     /home/nagios/.ssh
-# put nagios's public key in
-# /home/nagios/.ssh/authorized_keys (mode 600)
 ```
+
+On the nagios droplet, find nagios's public key, or create one if `ssh-keygen` finds none (answer **n** if it asks to overwrite):
+
+```bash
+home=$(getent passwd nagios | cut -d: -f6)
+sudo install -d -m 700 -o nagios -g nagios "$home/.ssh"
+sudo -u nagios ssh-keygen -t ed25519 -N "" \
+    -C "nagios@nagios" -f "$home/.ssh/id_ed25519"
+sudo cat "$home/.ssh/id_ed25519.pub"
+```
+
+Back on production, install that one line for the `nagios` user. `restrict` stops the key forwarding ports or opening a terminal; it can still run check commands:
+
+```bash
+sudo -u nagios tee /home/nagios/.ssh/authorized_keys \
+    <<'EOF'
+restrict ssh-ed25519 AAAA... nagios@nagios
+EOF
+sudo chmod 600 /home/nagios/.ssh/authorized_keys
+```
+
+Allow the login, limited to the nagios droplet's VPC address, by extending the `AllowUsers` line from step 2:
+
+```
+AllowUsers rmiller deploy nagios@10.136.169.26
+```
+
+```bash
+sudo sshd -t && sudo systemctl reload ssh
+```
+
+Test from the nagios droplet by private IP, and accept the host key:
+
+```bash
+sudo -u nagios ssh nagios@10.136.126.240 \
+    /usr/lib/nagios/plugins/check_load -r \
+    -w 1.5,1.2,1 -c 3,2,1.5
+```
+
+If it's refused, check `journalctl -u ssh` on production for `AllowUsers`, and `fail2ban-client status sshd` for a ban (the VPC is whitelisted in step 2; if you connected by hostname, the nagios droplet's public IP also needs adding).
 
 ```
 define service {
@@ -830,7 +872,7 @@ define service {
 }
 ```
 
-This assumes your existing `check_by_ssh` command passes `$ARG1$` through, as it does for `moss`. Check with `sudo -u nagios ssh nagios@10.136.126.240 true` first, so the host key is accepted.
+This assumes your existing `check_by_ssh` command passes `$ARG1$` through, as it does for `moss`.
 
 **5. Reload.** Verify the config, then reload:
 
