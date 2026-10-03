@@ -1,0 +1,55 @@
+name: Deploy
+on:
+  # Deploy by pushing a version tag: git tag v1.2.0 && git push origin v1.2.0
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency: deploy-production
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require passing Tests on this commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh run list -R "$GITHUB_REPOSITORY" \
+            --workflow tests.yml \
+            --commit "$GITHUB_SHA" \
+            --status success \
+            --json databaseId --jq length)
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::Tests has not passed on $GITHUB_SHA."
+            echo "Wait for Tests on master, then re-run this job."
+            exit 1
+          fi
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          # The tagged commit, or the commit of the ref picked in a manual run.
+          REF: ${{ github.sha }}
+        run: |
+          ssh deploy@${{ secrets.DEPLOY_HOST }} "REF=$REF bash -se" <<'EOF'
+          set -e
+          cd /var/www/chippytrip-api
+          git fetch origin master --tags
+          git reset --hard "$REF"
+          composer install --no-dev --optimize-autoloader --no-interaction
+          php artisan migrate --force
+          php artisan optimize
+          php artisan queue:restart
+          EOF
