@@ -12,6 +12,7 @@ Replace these placeholders throughout:
 | --- | --- |
 | `nyc1` | Region (closest to Rochester). Droplet and both databases must share it. |
 | `DROPLET_IP` | Droplet's public IPv4 |
+| `HOME_IP` | Your home public IPv4 (`curl -4 ifconfig.me`) |
 | `api.chippytrip.com` | Production hostname: the one madsci serves today (see step 10) |
 | `api-do.chippytrip.com` | Temporary hostname for testing before cutover |
 | `/var/www/chippytrip-api` | App directory |
@@ -136,6 +137,56 @@ Security updates install automatically on Ubuntu (`unattended-upgrades` is on by
 
 ```bash
 systemctl status unattended-upgrades
+```
+
+### Fail2ban
+
+Bots hammer port 22 all day. Key-only logins already stop them getting in; fail2ban stops the noise by banning an address after repeated failed logins. Install it after the `sshd` changes above, and whitelist your own addresses first: a banned client sees `Connection refused`, and the Droplet Console signs in over SSH too, so it can't get you out of a ban.
+
+```bash
+sudo apt install -y fail2ban
+```
+
+Create `/etc/fail2ban/jail.d/local.conf`:
+
+```ini
+[DEFAULT]
+# Never ban: localhost, home, the VPC (WireGuard
+# traffic arrives via nagios), and the WireGuard mesh.
+ignoreip = 127.0.0.1/8 ::1
+           HOME_IP
+           10.136.0.0/16
+           10.99.0.0/24
+backend  = systemd
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+```
+
+`backend = systemd` reads `sshd`'s journal directly, so the jail doesn't depend on `/var/log/auth.log` existing.
+
+```bash
+sudo systemctl enable --now fail2ban
+sudo fail2ban-client status sshd
+sudo fail2ban-client get sshd ignoreip
+```
+
+The GitHub Actions runner logs in with its key on the first try, so it never accumulates failures and doesn't need whitelisting.
+
+If your home IP changes, update `ignoreip` and run `sudo systemctl restart fail2ban`.
+
+**If you're locked out anyway:**
+
+- Over WireGuard, SSH to the droplet's private IP (`ssh rmiller@10.136.x.x`) once the route in step 4 is in place. `10.136.0.0/16` is whitelisted, so this path always works.
+- Or use the droplet's **Recovery Console** in the DigitalOcean panel, which doesn't use SSH. If it won't take keyboard input, try Firefox.
+
+Then unban:
+
+```bash
+sudo fail2ban-client set sshd unbanip HOME_IP
 ```
 
 The 2 GB droplet has no swap, and `composer install` can spike memory. Add 2 GB of swap:
@@ -669,6 +720,7 @@ Most failures trace back to trusted sources, TLS settings, or file ownership.
 | Redis `NOAUTH` / `WRONGPASS` | Missing username | `REDIS_USERNAME=default` plus the password |
 | Apache 503 Service Unavailable | FPM socket path or pool not running | `systemctl status php8.3-fpm`; check `listen.owner = www-data` |
 | `Permission denied` on `storage/logs` | A file owned by root, e.g. after running artisan with sudo | `sudo chown -R deploy:deploy /var/www/chippytrip-api`; always run artisan as `deploy` |
+| SSH `Connection refused` from home, but `nc -vz DROPLET_IP 22` works elsewhere | fail2ban banned `HOME_IP` | Get in over WireGuard or the Recovery Console; `sudo fail2ban-client set sshd unbanip HOME_IP`; add it to `ignoreip` (step 2) |
 | Actions: `Host key verification failed` | Bad `DEPLOY_KNOWN_HOSTS` | Re-run `ssh-keyscan -H DROPLET_IP` and update the secret |
 | Actions or droplet: `Permission denied (publickey)` on git | Deploy key or `~/.ssh/config` missing for `deploy` | `sudo -iu deploy ssh -T git@github.com` |
 | Actions `test` job fails on a missing function | PHP extension not in the `setup-php` list | Add it to `extensions:` |
