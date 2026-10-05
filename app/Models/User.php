@@ -8,6 +8,7 @@ use App\Models\UserChannel;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -28,8 +29,15 @@ class User extends Authenticatable {
             'email_verified_at' =>	'datetime',
             'password' =>			'hashed',
 			'subscription_type' =>	SubscriptionType::class,
+			'is_canary' =>			'boolean',
         ];
     }
+
+	// =========================================================================
+	// Excludes chippy-canary's synthetic accounts. Use for real-user metrics.
+	public function scopeReal(Builder $query): void {
+		$query->where('is_canary', false);
+	}
 
 	// =========================================================================
 	public function channels() : HasMany {

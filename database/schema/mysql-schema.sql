@@ -366,6 +366,7 @@ CREATE TABLE `users` (
   `email_verified_at` timestamp NULL DEFAULT NULL,
   `password` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `subscription_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'free',
+  `is_canary` tinyint(1) NOT NULL DEFAULT '0',
   `remember_token` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
@@ -536,3 +537,4 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (62,'2026_09_24_120
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (64,'2026_09_24_170000_unique_token_per_device',14);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (65,'2026_09_24_180000_drop_audits_table',15);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (66,'2026_09_25_120000_add_enabled_at_to_watches',16);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (67,'2026_10_05_120000_add_is_canary_to_users',17);
