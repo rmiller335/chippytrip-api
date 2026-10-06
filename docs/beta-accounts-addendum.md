@@ -7,33 +7,20 @@ Oct 6, 2026 · Robert Miller
 > https://claude.ai/code/artifact/2f40a35c-2462-44e4-9ff3-23b0c68ba810.
 
 Most of the beta account scenarios are already designed: invitations with consent and signed links, Google and Apple
-through `social_identities` keyed on `sub`, merging placeholders, the beta gate, forgot password, leaving a family and
-`DELETE /api/me`. This file records what the Oct 6 review added, and two points that need a decision against the
-Sep 29 decisions.
+through `social_identities` keyed on `sub`, the beta gate, forgot password, leaving a family and
+`DELETE /api/me`. This file records what the Oct 6 review added; its two decisions are now in the design itself.
 
-## To decide
+## Decided on Oct 6
 
-### 1. Default tier for a sign-up without an invite
+Both are now in the design's Decisions section (and D10, D11 in the implementation plan).
 
-The design's decisions say `free`. The Oct 6 scenario list says `basic`. Pick one and update the design's Decisions
-section.
+- **Beta invitees are `users` rows with `subscription_type = beta`.** `beta:invite` creates the placeholder; claiming it
+  sets `basic`. After launch an uninvited sign-up still gets `free`.
+- **Strict email rule, for beta and family invitations alike.** An invitation is claimed only with the invited address,
+  by any method. No `MergeUsers`. The beta gate checks for an unclaimed `beta` or `family` placeholder with that email.
 
-### 2. Beta gate and Apple Hide My Email
-
-`EnsureBetaAccess` runs in the OAuth callback before a new user is created, and checks the email the provider returns.
-A beta tester who has **no** invite token and signs in with Apple while hiding their email returns a
-`…@privaterelay.appleid.com` address, which isn't in `beta_testers`, so they get `beta_closed`.
-
-Options:
-
-- **Email first.** The app asks for the email, `EnsureBetaAccess` checks it, and the API returns a short-lived signed
-  `beta_ticket` that rides in the OAuth `state` like `invite_token`. The callback accepts a valid ticket in place of
-  the provider email, and links the identity to the email that was checked.
-- **Code fallback.** On `beta_closed` with a relay address, the app asks for the real email and sends a 6-digit code;
-  a correct code attaches the Apple identity to that tester.
-
-Email first also gives the app the sign-in hint below. Family invitees are unaffected: their invite token already
-passes the gate.
+Still open: Apple Hide My Email returns a relay address that matches no invitation. Either refuse it with "choose Share
+My Email", or send a code to the invited address and link the Apple ID once it's entered.
 
 ## Additions
 

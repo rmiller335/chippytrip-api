@@ -12,7 +12,7 @@ These 11 points come from reading the current code, and each shapes how a phase 
 | --- | --- | --- | --- |
 | 1 | `FamilyMemberController::update()` calls `sync()` on `family()`. `sync()` applies the relation's `wherePivot` filters (checked in the framework source), so once `family()` is filtered to accepted it re-attaches pending rows (unique key violation) and never detaches them. | `FamilyMemberController.php:55` | `update()` and `index()` use `familyIncludingPending()`. Test re-PUTting a list with a pending member. |
 | 2 | `FlightWatchSvc::removeListener()` builds its delete list from `family()`. Once filtered, unwatching leaves pending or declined members' listeners. | `FlightWatchSvc.php:66` | Switch it to `familyIncludingPending()`. |
-| 3 | `listeners.user_id` has no `ON DELETE CASCADE`. | schema dump | `DELETE /api/me` and `MergeUsers` move or delete listeners explicitly, or the user delete fails. |
+| 3 | `listeners.user_id` has no `ON DELETE CASCADE`. | schema dump | `DELETE /api/me` deletes listeners explicitly, or the user delete fails. |
 | 4 | Deleting listeners directly skips watch cleanup; the FlightAware alert stays live until `maintenance:nightly`. | `FlightWatchSvc::removeListener()` | `DELETE /api/me`, decline and leave go through the existing removal path per watch. |
 | 5 | Postmark can't send mail yet: `symfony/postmark-mailer` isn't installed, `MAIL_MAILER=log`, no `app/Mail`. | `composer.lock`, `config/mail.php` | Phase 2 adds the mailer and the first outbound message. |
 | 6 | All routes are in `routes/api.php`, which is stateless and has no CSRF middleware. | `bootstrap/app.php` | The OAuth callback needs no CSRF exclusion; just confirm Apple's `form_post` reaches it. |
@@ -109,7 +109,7 @@ Phases 1 and 3 go out in the same deploy. Without Phase 3 there is no way to acc
 | `GET /api/family-members` | Rows carry `status` (`pending`, `accepted` or `declined`) but no `invite_url`, since only the hash is stored |
 | `POST /api/family-members/{member}/invite` | Bound through `$request->user()->familyMembers()`. Rotates the token and resends; a `declined` row goes back to `pending`. 409 if already accepted. The app's Share invite button calls this. |
 | `GET /api/invitations/{token}` | Public, `throttle:invites`; 410 expired or used, 404 unknown; `email_hint` masked by a helper in `Utils.php` |
-| `POST /api/invitations/{token}/accept` | Token auth plus a live invite token; merges an unclaimed placeholder into the caller if they differ (pulls `MergeUsers` forward from Phase 5) |
+| `POST /api/invitations/{token}/accept` | Token auth plus a live invite token; the caller's email must equal the invited address, otherwise 403 `{"error":"email_mismatch"}`. No merging (D11). |
 | `GET /api/family-invitations`, `POST .../{id}/accept\|decline` | Scoped to `family_member_id = me`. Empty for an account claimed by email alone until `email_verified_at` is set (finding 7). |
 | `DELETE /api/family-memberships/{owner}` | Deletes my row in their list and my listeners on their watches |
 | `register`, `sanctum/token` | A valid `invite_token` accepts in the same transaction |
@@ -127,13 +127,13 @@ Raw tokens are never stored, so a link is only shown when it is issued; the desi
 ## Phase 4: Beta program
 
 - **Config:** `config/chippytrip.php` (from Phase 3) gains `beta_gate` (`BETA_GATE`). `config/services.php` gains `firebase.project_number`, `android_app_id`, `app_distribution_key`, `beta_group`.
-- **Migration:** `create_beta_testers_table` as designed.
+- **Migration:** `create_beta_testers_table` as designed (Firebase bookkeeping keyed on `user_id`). Add `Beta = 'beta'` to `SubscriptionType` (D10).
 - **Service:** `App\Services\AppDistribution` on `google/auth` (already a dependency) with the `cloud-platform` scope; `joinGroup(array $emails)` and `removeTesters(array $emails)`. Tests use `Http::fake()`, since `preventStrayRequests()` is on.
-- **Gate:** `App\Actions\EnsureBetaAccess::check(string $email, ?string $inviteToken)` passes when the gate is off, the email is an active tester, or the invite token is live; otherwise 403 `{"error":"beta_closed"}`. Called from `register` and, in Phase 5, the OAuth create-user branch. Claiming an existing placeholder is never gated, since someone already invited that person.
-- **Commands:** `beta:invite`, `beta:remove`, `beta:list`, thin wrappers in the style of `NotificationsTest.php`.
+- **Gate:** `App\Actions\EnsureBetaAccess::check(string $email)` passes when the gate is off, or the email is an unclaimed `beta` or `family` placeholder whose tester row isn't removed; otherwise 403 `{"error":"beta_closed"}`. Called from `register` and, in Phase 5, the OAuth callback before it would create a user. Claiming a `beta` placeholder sets `basic` through the one tier-change action.
+- **Commands:** `beta:invite` (creates the `beta` placeholder user unless one exists), `beta:remove`, `beta:list`, thin wrappers in the style of `NotificationsTest.php`.
 - **Family invites:** while the gate is on, `SendFamilyInvitation` upserts `beta_testers` with `source = family` and joins the Firebase group.
 - **Mail:** welcome email as a mailable, same Postmark transport as Phase 2.
-- **Tests:** gate on and off, removed tester blocked, family invite bypass, placeholder claim passes with the gate on, commands against a faked API, Firebase errors reported without a half-written row.
+- **Tests:** gate on and off, removed tester blocked, family placeholder passes, beta claim sets `basic`, uninvited email refused, commands against a faked API, Firebase errors reported without a half-written row.
 - **Ops:** the Firebase console steps from the design; service-account JSON on `madsci`.
 
 ## Phase 5: Google
@@ -142,17 +142,16 @@ Raw tokens are never stored, so a link is only shown when it is issued; the desi
 - **`OAuthController::start`:** validates provider (`google|apple`), `code_challenge` (43–128 chars, base64url), `intent` and optional `invite_token`/`link_ticket`. Packs them with an issued-at time into `Crypt::encryptString(json)` and redirects via `Socialite::driver($p)->stateless()->with(['state' => $state])->redirect()`.
 - **`callback`:** decrypts `state` (reject after 10 minutes), fetches the provider user, runs `ResolveOAuthUser`, stores a 60 s `oauth_exchange_codes` row and redirects to `chippytrack://auth/callback?code=…`. Errors redirect to `?error=<slug>`, never a JSON page.
 - **`exchange`:** `throttle:oauth`; checks `hash_equals(base64url(sha256(verifier)), challenge)`, single use and expiry, then `IssueDeviceToken`; returns `{token, user}`.
-- **`App\Actions\ResolveOAuthUser`:** design rules 1–6, one small private method each, tested one by one. Rule 5 trusts Google only when `email_verified` is true; finding 11 applies to rule 3.
-- **`App\Actions\MergeUsers(User $placeholder, User $into)`:** refuses unless the placeholder is unclaimed. Moves listeners (skipping watches `$into` is on), `family_members` both sides (skipping duplicates and self-links), `user_channels`; deletes the placeholder's tokens (morph, no FK) and the placeholder. One transaction. Delete tokens by `tokenable_id` for both `user` and legacy `App\Models\User` types.
+- **`App\Actions\ResolveOAuthUser`:** design rules 1–5, one small private method each, tested one by one. Rule 3 trusts Google only when `email_verified` is true and requires the email to equal the placeholder's (D11).
 - `RateLimiter::for('oauth')`.
-- **Tests:** each resolution rule; PKCE mismatch, reuse, expiry; tampered or expired `state`; merges with overlapping watches and family; refusal on a claimed account. Mock with `Socialite::shouldReceive('driver->stateless->user')`.
+- **Tests:** each resolution rule; PKCE mismatch, reuse, expiry; tampered or expired `state`; `email_mismatch` with an invite token; `beta_closed` without one; refusal on a claimed account. Mock with `Socialite::shouldReceive('driver->stateless->user')`.
 - **App:** PKCE verifier in `TokenStorage`, `Browser::auth()`, `auth/callback` route calling `oauthExchange()` then `CompleteSignIn`.
 
 ## Phase 6: Apple
 
 - **Setup:** `composer require socialiteproviders/apple`; register the provider in `AppServiceProvider::boot()` as designed; `services.apple`.
 - **Callback:** `Route::match(['get','post'], ...)`. Apple sends `user` (name and email JSON) only on the first authorization; read it from the request before calling Socialite and pass it to `ResolveOAuthUser`.
-- **Rule 5:** Apple emails count as verified. Private-relay addresses are stored as `provider_email` and match existing users only if identical.
+- **Rule 3:** a shared Apple email counts as verified. A private-relay address is stored as `provider_email` and matches no invitation; how to handle it is the design's open item.
 - **Ops:** Services ID, `.p8` key on the server, Postmark domain registered with Apple's Private Email Relay.
 - **Tests:** first sign-in POST with `user`, later sign-in without it, relay email.
 
@@ -171,11 +170,11 @@ Raw tokens are never stored, so a link is only shown when it is issued; the desi
 - **Schema dump:** `php artisan schema:dump` after each migration PR; it was found stale on 2026-09-23.
 - **Throttles:** `login` (existing), `invites`, `oauth`; their numbers go in `config/auth.php` beside `login_rate_limit`.
 - **Email normalization:** lowercase on register, family PUT and beta tables. `FamilyMemberController::update()` doesn't today, so `Alice@x.com` and `alice@x.com` can create two placeholders. Fix in Phase 1 or 3.
-- **Logging:** log claim, merge and accept events with the existing `Log::` patterns; these flows are hard to reconstruct later.
+- **Logging:** log claim and accept events with the existing `Log::` patterns; these flows are hard to reconstruct later.
 
 ## Decisions
 
-All nine were settled on 2026-09-29 by taking the proposed default. The phases above are written on that basis.
+D1–D9 were settled on 2026-09-29 by taking the proposed default; D10 and D11 on 2026-10-06. The phases above are written on that basis.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -188,5 +187,7 @@ All nine were settled on 2026-09-29 by taking the proposed default. The phases a
 | D7 | What serves the invite page and `assetlinks.json`, and on which host? | This app, at its `APP_URL` (`api-dev.chippytrip.com` today) |
 | D8 | Should the beta gate block claiming an existing placeholder without an invite token? | No |
 | D9 | Can an owner see `declined`? | Yes |
+| D10 | How are beta invitees represented? (2026-10-06) | `users` rows with `subscription_type = beta`; claiming sets `basic` |
+| D11 | Can an invitation be claimed with a different email? (2026-10-06) | No, for beta and family alike; no `MergeUsers` |
 
 D2, D7 and D9 were open questions in the design doc and are now recorded there as decided.

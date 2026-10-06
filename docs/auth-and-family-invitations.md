@@ -2,7 +2,7 @@
 
 Sep 28, 2026 · Robert Miller
 
-> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 37). The doc is the source of truth; re-export after changing it.
+> Exported from the design doc at https://claude.ai/code/artifact/a829e8ec-12cc-4451-b2d9-4b89299cb364 (rev 42). The doc is the source of truth; re-export after changing it.
 
 ## Overview
 
@@ -136,9 +136,9 @@ Everything is additive under `/api`; no existing request or response changes sha
 ### Password sign-up
 
 1. The app posts `name, email, password, device_name` (plus `invite_token` when it has one) to `/api/auth/register`.
-2. The API claims the matching unclaimed placeholder or creates a new user, accepts the invitation if a token came with it, and issues a Sanctum token named after the device.
-3. The app runs the same post-sign-in step as login today: mirror the user, store the token, sign in locally, enroll in push.
-4. A verification email goes out. Nothing is blocked on it, with one exception. An account claimed by email alone, with no invite token, doesn't see the placeholder's pending invitations until the address is verified. Otherwise anyone could take over a placeholder by typing its email.
+2. The email must belong to an unclaimed `beta` or `family` placeholder (any email once `BETA_GATE` is off). Claiming needs proof of the address: an `invite_token` from the emailed link, or a 6-digit code sent to the address, after which the request completes.
+3. The API claims the placeholder, accepts the invitation if a token came with it, and issues a Sanctum token named after the device.
+4. The app runs the same post-sign-in step as login today: mirror the user, store the token, sign in locally, enroll in push.
 
 ### Google and Apple sign-in
 
@@ -166,10 +166,11 @@ The callback checks these in order and stops at the first match:
 
 1. A `social_identities` row matches (`provider`, `sub`): sign in as that user.
 2. `intent=link` with a valid `link_ticket`: attach the identity to that user.
-3. An `invite_token` whose invited user is unclaimed: claim that placeholder. Attach the identity, take the name and email from the provider, and accept the family link. If the provider's email already belongs to another account, the placeholder keeps its own email and the provider's is stored only on the identity. This is what makes Apple private-relay addresses work: the token identifies the invitee, not the email.
-4. An `invite_token` whose invited user is already claimed by someone else: resolve the caller by rules 5 and 6, then merge the placeholder into them if it is still unclaimed, and accept.
-5. The provider email is verified (Google `email_verified`, any Apple email) and matches a user: claim it if unclaimed, otherwise link the identity to it.
-6. Otherwise create a new user.
+3. The provider email is verified (Google `email_verified`, Apple when the user shares their email) and equals the email of a user: claim it if it is an unclaimed `beta` or `family` placeholder (attach the identity, take the name from the provider, accept the family link if an `invite_token` came with it), otherwise link the identity to it.
+4. Otherwise refuse, and create nothing. With an `invite_token`: `403 {"error": "email_mismatch"}`, and the app asks the person to sign in with the invited address (shown masked). Without one, while `BETA_GATE` is on: `403 {"error": "beta_closed"}`.
+5. Once `BETA_GATE` is off, an unmatched verified email creates a new user.
+
+Strict email rule: an invitation is claimed only with the invited address, by any method. An Apple sign-in with Hide My Email returns a private-relay address that matches no invitation, so it falls to rule 4.
 
 ### Invitation
 
@@ -177,19 +178,12 @@ The callback checks these in order and stops at the first match:
 2. The API creates an invitation and returns `invite_url` (`{APP_URL}/invite/{token}`, so `https://api-dev.chippytrip.com/invite/{token}` today). Postmark emails it; Bob can also share it from the app.
 3. Alice has an account: she also gets a push and sees the request under `GET /api/family-invitations`. Accepting needs no link.
 4. Alice has no account: the link opens the app (Android App Link) or the web page with a Play Store link. The app keeps the token through the install and shows "Bob invited you to see his flights."
-5. Alice signs up by any method, and the token rides along. The API claims or merges, sets the row to `accepted`, and marks the invitation used, in one transaction.
+5. Alice signs up by any method, and the token rides along. The API claims the placeholder, sets the row to `accepted`, and marks the invitation used, in one transaction.
 6. Bob's `FamilyMembers` screen shows Alice as accepted; she is now available for `auto_add` and the listener picker.
 
-### Merging a placeholder into a real account
+### No account merging
 
-Bob invited `alice@work.com`, but Alice signs up with her personal Google account. The invite token proves she is the intended person, so `App\Actions\MergeUsers` runs in one transaction:
-
-- Move `listeners.user_id` to the real account, skipping any watch she is already on.
-- Move `family_members` rows on both sides (`user_id` and `family_member_id`), skipping duplicates.
-- Move `user_channels`.
-- Delete the placeholder.
-
-Only unclaimed placeholders are ever merged away; two claimed accounts are never merged automatically.
+A placeholder can only be claimed with its own email. If Bob invited `alice@work.com`, Alice signs up with that address: a password, or a Google or Apple account that uses it. Her personal Google account can't claim the invitation; Bob re-invites her at that address instead. There is no `MergeUsers`.
 
 ## Authorization rules
 
@@ -288,39 +282,39 @@ Beta testers are invited with an artisan command and install the app through Fir
 
 Personal Play developer accounts created after November 13, 2023 need a closed test with at least 12 testers opted in for 14 continuous days before production access. Organization accounts are exempt.
 
-### Data model: `beta_testers`
+### Data model: beta invitees
+
+A beta invitee is a `users` row like a family placeholder: null password and `subscription_type = beta` (a new `SubscriptionType` case). Claiming it sets `basic`. `beta` means invited but not signed up, so tier counts and billing skip it. `beta_testers` keeps only the Firebase bookkeeping:
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | bigint |  |
-| `email` | string, unique | Lowercased |
-| `name` | string, nullable | For the invite email |
+| `user_id` | fk users, unique | The invitee's user row (placeholder until claimed) |
 | `source` | enum: direct, family | direct = beta:invite; family = added when a family invitation is sent |
 | `invited_by` | fk users, nullable | The family owner, for family rows |
 | `firebase_tester` | string, nullable | Tester resource name returned by the API |
 | `invited_at` | timestamp | Set on each successful invite |
-| `user_id` | fk users, nullable | Linked when an account with that email signs up or signs in |
 | `removed_at` | timestamp, nullable | Set by `beta:remove` |
 
 ### Artisan commands
 
-- `php artisan beta:invite {email} {--name=} {--resend}`: upsert the `beta_testers` row, call `groups/beta:batchJoin` with `createMissingTesters: true`, then send a Postmark welcome email that explains the App Tester install and sign-up.
+- `php artisan beta:invite {email} {--name=} {--resend}`: create the user (null password, `subscription_type = beta`) unless one exists, upsert its `beta_testers` row, call `groups/beta:batchJoin` with `createMissingTesters: true`, then send a Postmark welcome email that explains the App Tester install and that they must sign up with this address. An existing user keeps their tier.
 - `php artisan beta:remove {email}`: call `testers:batchRemove`, which revokes access to all releases, and set `removed_at`.
-- `php artisan beta:list`: table of testers, invite date and whether they have an account.
+- `php artisan beta:list`: table of testers, invite date and whether they have signed up.
 - Service class `App\Services\AppDistribution` wraps the API with `google/auth` service-account credentials and the `cloud-platform` scope; the commands stay thin.
 - Config in `config/services.php` under `firebase`: `project_number`, `android_app_id`, `app_distribution_key` (path to the service-account JSON on `madsci`), `beta_group` (default `beta`).
 
 ### Sign-up gate
 
-During the beta, only emails in `beta_testers` (with `removed_at` null) can create an account. Existing accounts keep signing in.
+During the beta, a new account can only be made by claiming a `beta` or `family` placeholder with its own email. Existing accounts keep signing in.
 
 - Config flag `chippytrip.beta_gate` (env `BETA_GATE=true`); turning it off opens sign-up at launch.
-- Checked in one place, `App\Actions\EnsureBetaAccess`, called by `POST /api/auth/register` and by the OAuth callback before it creates a new user.
+- Checked in one place, `App\Actions\EnsureBetaAccess`, called by `POST /api/auth/register` and by the OAuth callback before it would create a user.
 - Rejection: `403` with `{"error": "beta_closed"}`; the app shows a "ChippyTrip is in private beta" screen instead of the form error.
-- On success, set `beta_testers.user_id`.
-- `beta:remove` blocks new sign-ups for that email but does not delete an existing account.
+- Claiming a `beta` placeholder sets `subscription_type = basic` through the one tier-change action.
+- `beta:remove` blocks claiming that placeholder but does not delete an existing account.
 
-Family invitees can always sign up. While `BETA_GATE` is on, sending a family invitation also adds the invitee to the Firebase `beta` group and creates a `beta_testers` row with `source = family`, so they can install the app. `EnsureBetaAccess` also passes any sign-up that carries a valid, unexpired family invitation token, which covers an invitee who signs up with a different email than the one invited.
+Family invitees can always sign up. While `BETA_GATE` is on, sending a family invitation also adds the invitee to the Firebase `beta` group with a `beta_testers` row (`source = family`), so they can install the app. They claim their placeholder with the invited email, like everyone else.
 
 ### Firebase setup
 
@@ -350,7 +344,7 @@ Each step ships on its own, and step 1 changes nothing the current app build can
 - [ ] **Password sign-up and sign-out.** `register`, `logout`, `logout-all`, forgot and reset password. In the app: `CompleteSignIn`, `Auth\Register`, `Auth\ForgotPassword`, server logout.
 - [ ] **Invitations.** `family_invitations`, the invite, preview, accept and decline endpoints, Postmark template, deep-link scheme and host, `assetlinks.json`, the invite landing route, badges and share button in `FamilyMembers`.
 - [ ] **Beta program.** `beta_testers`, `App\Services\AppDistribution`, `beta:invite`, `beta:remove`, `beta:list`, the sign-up gate, the Postmark welcome template, Firebase group `beta`, first release uploaded. Reuses the invitations Postmark setup and landing page.
-- [ ] **Google.** Socialite, `oauth_exchange_codes`, start, callback and exchange, `social_identities`, the resolution rules and `MergeUsers`. In the app: PKCE and `Browser::auth()`.
+- [ ] **Google.** Socialite, `oauth_exchange_codes`, start, callback and exchange, `social_identities`, the resolution rules with the strict email match. In the app: PKCE and `Browser::auth()`.
 - [ ] **Apple.** Services ID and key, the `form_post` callback, first-authorization name and email, relay domain in Postmark.
 - [ ] **Account management.** Identity linking and unlinking, set password, `DELETE /api/me` wired to `DeleteUserForm`.
 
@@ -367,12 +361,14 @@ The beta stays closed until these are done; none of them block the build order a
 
 ## Decisions
 
-The design's open questions were all settled on 2026-09-29.
+Settled on 2026-09-29; the beta and strict-email decisions were added on 2026-10-06.
 
 - Pending members keep receiving pushes for flights they were already added to before this ships: the backfill marks existing rows `accepted`, and only new rows wait for acceptance.
-- A sign-up without an invite gets `subscription_type = free`; claiming a `family` placeholder keeps `family`.
+- Beta invitees are `users` rows with `subscription_type = beta`; claiming one sets `basic`. Claiming a `family` placeholder keeps `family`. After launch, an uninvited sign-up gets `free`. (2026-10-06)
+- Strict email rule, for beta and family invitations alike: an invitation is claimed only with the invited address, by any method. No `MergeUsers`. (2026-10-06)
 - An owner sees `declined` on a member who declined, distinct from an expired invitation, and can re-invite.
 - Invite links and `assetlinks.json` are served by the API at its `APP_URL`, which is `https://api-dev.chippytrip.com` today. Moving to a production host is an `APP_URL` change plus the app's `NATIVEPHP_DEEPLINK_HOST`.
+- Open: Apple Hide My Email can't match an invitation. Either refuse it with "choose Share My Email", or send a code to the invited address and link the Apple ID once it's entered.
 
 ## Sources
 
