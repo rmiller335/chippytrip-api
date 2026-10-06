@@ -18,16 +18,29 @@ use Illuminate\Console\Command;
  * subscribers are everyone else listening. The JSON shape at the bottom is
  * the contract.
  */
-class CanaryState extends Command
-{
+// =============================================================================
+class CanaryState extends Command {
+	// Actual-time fields for each event code. Only these say when the event
+	// really happened; the model's event_dt falls back to estimated or
+	// scheduled times, which would make latency figures meaningless.
+	private const ACTUAL_FIELDS = [
+		'out' =>		'actual_out',
+		'off' =>		'actual_off',
+		'on' =>			'actual_on',
+		'in' =>			'actual_in',
+		'departure' =>	'actual_out',
+		'arrival' =>	'actual_in',
+		'diverted' =>	'actual_on',
+	];
+
 	protected $signature = 'canary:state
 		{--email=* : User email addresses to include}
 		{--days=10 : Only watches created in the last N days}';
 
 	protected $description = 'JSON dump of canary users\' watches for the end-to-end canary';
 
-	public function handle(): int
-	{
+	// =========================================================================
+	public function handle(): int {
 		$emails = array_map('strtolower', $this->option('email'));
 		$since = now()->subDays((int) $this->option('days'));
 
@@ -63,6 +76,7 @@ class CanaryState extends Command
 						'notification_id' => $c->notification_id,
 						'event_code' => $c->event_code,
 						'created_at' => $c->created_at->toIso8601String(),
+						'event_at' => $this->actualEventTime($c),
 					])->values(),
 			];
 		})->values();
@@ -73,5 +87,19 @@ class CanaryState extends Command
 		], JSON_UNESCAPED_SLASHES));
 
 		return self::SUCCESS;
+	}
+
+	// =========================================================================
+	// When FlightAware says the event actually happened, or null when the
+	// payload has no actual time for this kind of event (filed, cancelled,
+	// holds, or a departure reported before actual_out is known).
+	private function actualEventTime(WatchCallback $c): ?string {
+		$field = self::ACTUAL_FIELDS[strtolower((string) $c->event_code)] ?? null;
+
+		if ($field === null || $c->{$field} === null) {
+			return null;
+		}
+
+		return $c->{$field}->toIso8601String();
 	}
 }
