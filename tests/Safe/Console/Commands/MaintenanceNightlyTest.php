@@ -18,6 +18,12 @@ use Tests\Safe\TestCase;
 // =============================================================================
 class MaintenanceNightlyTest extends TestCase {
 	// =========================================================================
+	protected function setUp(): void {
+		parent::setUp();
+		config(['flightaware.callback' => '/api/watch-callback']);
+	}
+
+	// =========================================================================
 	public function test_enables_watches_entering_their_alert_window(): void {
 		Bus::fake();
 
@@ -32,7 +38,7 @@ class MaintenanceNightlyTest extends TestCase {
 		$watch = Watch::create(['flight_id' => $flight->id, 'enabled' => false]);
 		$user->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
 
-		$fa = \Mockery::mock(FlightAwareSvc::class);
+		$fa = \Mockery::mock(FlightAwareSvc::class)->makePartial();
 		$fa->shouldReceive('watchList')->once()->andReturn([]);
 		$this->app->instance(FlightAwareSvc::class, $fa);
 
@@ -64,7 +70,7 @@ class MaintenanceNightlyTest extends TestCase {
 		]);
 		$user->listeners()->create(['watch_id' => $watch->id, 'travelers' => '1']);
 
-		$fa = \Mockery::mock(FlightAwareSvc::class);
+		$fa = \Mockery::mock(FlightAwareSvc::class)->makePartial();
 		$fa->shouldReceive('watchList')->once()->andReturn([]);
 		$this->app->instance(FlightAwareSvc::class, $fa);
 
@@ -80,9 +86,9 @@ class MaintenanceNightlyTest extends TestCase {
 		// FlightAware reports an alert we have no record of locally (e.g. its
 		// matching Watch was already deleted here) -> pruneAlerts() should
 		// delete it remotely.
-		$fa = \Mockery::mock(FlightAwareSvc::class);
+		$fa = \Mockery::mock(FlightAwareSvc::class)->makePartial();
 		$fa->shouldReceive('watchList')->once()->andReturn([
-			(object) ['id' => '2000002'],
+			(object) ['id' => '2000002', 'target_url' => $this->ownTarget()],
 		]);
 		$fa->shouldReceive('watchDelete')->once()->with('2000002');
 		$this->app->instance(FlightAwareSvc::class, $fa);
@@ -108,14 +114,38 @@ class MaintenanceNightlyTest extends TestCase {
 		// pruneAlerts() only trusts our own database as the source of truth for
 		// what should exist -> it must never delete an alert that still has a
 		// matching Watch record, regardless of how stale FlightAware's view is.
-		$fa = \Mockery::mock(FlightAwareSvc::class);
+		$fa = \Mockery::mock(FlightAwareSvc::class)->makePartial();
 		$fa->shouldReceive('watchList')->once()->andReturn([
-			(object) ['id' => '2000003'],
+			(object) ['id' => '2000003', 'target_url' => $this->ownTarget()],
 		]);
 		$fa->shouldNotReceive('watchDelete');
 		$this->app->instance(FlightAwareSvc::class, $fa);
 
 		$this->artisan('maintenance:nightly')->assertExitCode(0);
+	}
+
+	// =========================================================================
+	public function test_leaves_alerts_that_belong_to_another_environment(): void {
+		Bus::fake();
+
+		// Dev and production share one AeroAPI account, so the alert list also
+		// holds the other environment's alerts. They have no Watch here, but
+		// deliver elsewhere -> pruneAlerts() must not delete them.
+		$fa = \Mockery::mock(FlightAwareSvc::class)->makePartial();
+		$fa->shouldReceive('watchList')->once()->andReturn([
+			(object) ['id' => '2000007', 'target_url' => 'https://elsewhere.example.com/api/watch-callback?s=abc'],
+			(object) ['id' => '2000008', 'target_url' => null],
+			(object) ['id' => '2000009', 'target_url' => $this->ownTarget()],
+		]);
+		$fa->shouldReceive('watchDelete')->once()->with('2000009');
+		$this->app->instance(FlightAwareSvc::class, $fa);
+
+		$this->artisan('maintenance:nightly')->assertExitCode(0);
+	}
+
+	// =========================================================================
+	private function ownTarget(): string {
+		return url(config('flightaware.callback')) . '?s=secret';
 	}
 
 	// =========================================================================
@@ -133,9 +163,9 @@ class MaintenanceNightlyTest extends TestCase {
 
 	// =========================================================================
 	private function mockFlightAware(array $alertIds, array $expectDeleted): void {
-		$fa = \Mockery::mock(FlightAwareSvc::class);
+		$fa = \Mockery::mock(FlightAwareSvc::class)->makePartial();
 		$fa->shouldReceive('watchList')->once()
-			->andReturn(array_map(fn ($id) => (object) ['id' => $id], $alertIds));
+			->andReturn(array_map(fn ($id) => (object) ['id' => $id, 'target_url' => $this->ownTarget()], $alertIds));
 
 		if (empty($expectDeleted)) {
 			$fa->shouldNotReceive('watchDelete');

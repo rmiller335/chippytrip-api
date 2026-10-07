@@ -17,6 +17,11 @@ class WatchCleanup extends Command {
 		$list = $fa->watchList();
 
 		foreach($list as $alert) {
+			// Leave other environments' alerts alone (shared AeroAPI account).
+			if (! $fa->isOwnAlert($alert)) {
+				continue;
+			}
+
 			$watch = Watch::where('subscription_id', $alert->id)->first();
 
 			if(null == $watch) {
