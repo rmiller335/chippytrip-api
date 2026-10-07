@@ -86,6 +86,11 @@ class MaintenanceNightly extends Command {
 		$alerts = $fa->watchList();
 
 		foreach($alerts as $alert) {
+			// Leave other environments' alerts alone (shared AeroAPI account).
+			if (! $fa->isOwnAlert($alert)) {
+				continue;
+			}
+
 			$watch = Watch::where('subscription_id', $alert->id)->first();
 
 			if(null == $watch) {

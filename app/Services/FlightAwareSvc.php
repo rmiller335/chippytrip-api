@@ -263,6 +263,30 @@ class FlightAwareSvc {
 	}
 
 	// =========================================================================
+	// True when a FlightAware alert delivers to this environment's callback.
+	// Dev and production share one AeroAPI account, so its alert list holds
+	// both environments' alerts; each environment may only manage its own.
+	// Compares scheme, host and path; the ?s= secret differs per alert.
+	public function isOwnAlert(object $alert): bool {
+		$callback = config('flightaware.callback');
+		$target = $alert->target_url ?? null;
+
+		if (empty($callback) || empty($target)) {
+			return false;
+		}
+
+		return self::callbackBase($target) === self::callbackBase(url($callback));
+	}
+
+	// =========================================================================
+	private static function callbackBase(string $url): string {
+		$parts = parse_url($url);
+
+		return strtolower(($parts['scheme'] ?? '') . '://' . ($parts['host'] ?? ''))
+			. rtrim($parts['path'] ?? '', '/');
+	}
+
+	// =========================================================================
 	public function watchById($watchId): ?object {
 		$url = $this->url . '/alerts/' . $watchId;
 
