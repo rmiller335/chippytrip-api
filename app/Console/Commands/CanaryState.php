@@ -78,6 +78,11 @@ class CanaryState extends Command {
 						'event_code' => $c->event_code,
 						'created_at' => $c->created_at->toIso8601String(),
 						'event_at' => $this->actualEventTime($c),
+						// The tray notification's text (FcmChannel's notification send),
+						// so the canary can match what a backgrounded phone shows.
+						'notifies' => WatchCallback::handles($c->event_code),
+						'title' => $c->title ?? 'ChippyTrip',
+						'body' => $c->body ?? '',
 					])->values(),
 			];
 		})->values();
