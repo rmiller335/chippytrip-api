@@ -132,6 +132,16 @@ class FlightSearchController extends Controller {
 		$destination = strtoupper(trim($request->destination));
 		$date = Carbon::parse($request->date);
 
+		// The app sends the scheduled departure as a UTC timestamp. Its UTC date
+		// is the next day for an evening departure in the Americas, so use the
+		// origin's local date instead. A bare date is already local.
+		if (strlen(trim($request->date)) > 10) {
+			$tz = Airport::where('icao', $origin)->orWhere('iata', $origin)->value('timezone');
+			if ($tz) {
+				$date = $date->setTimezone($tz);
+			}
+		}
+
 		if (empty(FlightWatchSvc::airlinesForIdent($ident))) {
 			throw ValidationException::withMessages([
 				'flight_number' => ['The flight number\'s airline code isn\'t recognised.'],
