@@ -19,7 +19,7 @@ class UserSubscriptionTypeTest extends TestCase {
 	// case needs a data migration first.
 	public function test_enum_values_match_stored_strings(): void {
 		$this->assertEqualsCanonicalizing(
-			['basic', 'family', 'free', 'frequent', 'super'],
+			['basic', 'beta', 'family', 'free', 'frequent', 'super'],
 			array_column(SubscriptionType::cases(), 'value')
 		);
 	}
