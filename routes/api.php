@@ -33,6 +33,11 @@ Route::middleware('auth:sanctum')->post('/fcm-token', [
 	App\Http\Controllers\FcmTokenController::class, 'store'
 ]);
 
+// Remove the FCM token for a device, stopping its push notifications.
+Route::middleware('auth:sanctum')->delete('/fcm-token', [
+	App\Http\Controllers\FcmTokenController::class, 'destroy'
+]);
+
 // Validate a flight number + date, or search by route — used by the
 // mobile app's "Add flight" modal.
 Route::middleware('auth:sanctum')->post('/flights/validate', [

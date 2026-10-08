@@ -24,4 +24,20 @@ class FcmTokenController extends Controller {
 
         return response()->noContent();
     }
+
+	// =========================================================================
+	// Stop push notifications to one of the user's devices (e.g. on sign
+	// out). Idempotent: succeeds even if the device has no token registered.
+	public function destroy(Request $request) {
+		$request->validate([
+			'device_id' => 'required|string',
+		]);
+
+		$request->user()->channels()
+			->where('channel', \App\Notifications\Channels\FcmChannel::class)
+			->where('identifier', $request->device_id)
+			->delete();
+
+		return response()->noContent();
+	}
 }
