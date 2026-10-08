@@ -216,6 +216,12 @@ class FlightSearchControllerTest extends TestCase {
 	}
 
 	// =========================================================================
+	// Search only returns flights departing on the requested date.
+	private function searchDate(): string {
+		return Carbon::now()->addDays(10)->toDateString();
+	}
+
+	// =========================================================================
 	private function scheduleEntry(array $overrides = []): array {
 		return array_merge([
 			'ident_iata' => 'VS3',
@@ -224,8 +230,8 @@ class FlightSearchControllerTest extends TestCase {
 			'origin_iata' => 'LHR',
 			'destination_icao' => 'KJFK',
 			'destination_iata' => 'JFK',
-			'scheduled_out' => '2026-07-01T14:00:00Z',
-			'scheduled_in' => '2026-07-01T22:05:00Z',
+			'scheduled_out' => $this->searchDate() . 'T14:00:00Z',
+			'scheduled_in' => $this->searchDate() . 'T22:05:00Z',
 		], $overrides);
 	}
 
@@ -239,7 +245,7 @@ class FlightSearchControllerTest extends TestCase {
 			->postJson('/api/flights/search', [
 				'origin' => 'EGLL',
 				'destination' => 'KJFK',
-				'date' => Carbon::now()->addDays(10)->toDateString(),
+				'date' => $this->searchDate(),
 			]);
 	}
 
@@ -251,8 +257,8 @@ class FlightSearchControllerTest extends TestCase {
 		$response->assertJsonCount(1);
 		$response->assertJson([[
 			'flight_number' => 'VS3',
-			'departure_time' => '2026-07-01 14:00',
-			'arrival_time' => '2026-07-01 22:05',
+			'departure_time' => $this->searchDate() . ' 14:00',
+			'arrival_time' => $this->searchDate() . ' 22:05',
 			'origin_name' => 'London Heathrow',
 			'destination_name' => 'John F Kennedy Intl',
 			'airline_name' => 'Virgin Atlantic',

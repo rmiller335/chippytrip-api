@@ -3,12 +3,16 @@
 namespace App\Services;
 
 use App\Models\Airline;
+use App\Models\Airport;
 use App\Models\Flight;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 
 // =============================================================================
 class FlightAwareSvc {
+	// AeroAPI bills per page, so this caps the cost of one schedule search.
+	private const SCHEDULE_MAX_PAGES = 3;
+
 	private string $callback;
 	private string $key;
 	private string $url;
@@ -78,16 +82,6 @@ class FlightAwareSvc {
 
 	// =========================================================================
 	public function scheduleForIdent(string $ident, Carbon $date): array {
-		$start = $date->copy()->startOfDay();
-		$end = $date->copy()->endOfDay();
-
-		$url = implode('/', [
-			$this->url,
-			'schedules',
-			$start->toIso8601ZuluString(),
-			$end->toIso8601ZuluString()
-		]);
-
 		// ICAO idents have a 3-letter airline prefix; IATA idents have a
 		// 2-character prefix that may include a digit (e.g. B6, 9E, U2).
 		// A letter in the 3rd position means ICAO — otherwise assume IATA.
@@ -101,26 +95,17 @@ class FlightAwareSvc {
 			? $prefix
 			: (Airline::where('iata', $prefix)->value('icao') ?: $prefix);
 
-		$resp = Http::withHeaders([
-			'x-apikey' =>	$this->key,
-		])
-		->withQueryParameters(array_filter([
+		$scheduled = $this->schedulesDepartingOn($date, [
 			'airline' =>		$airline,
 			'flight_number' =>	$flightNumber,
-		]))
-		->get($url);
+		]);
 
-		if(! $resp->successful()) {
-			return [];
-		}
-
-		$data = $resp->json();
 		$matches = [];
 
 		// A flight number can legitimately appear more than once on the
 		// same day — e.g. a same-day turn like DL5240 DTW->ROC and then
 		// ROC->DTW. Collect every match rather than just the first.
-		foreach($data['scheduled'] ?? [] as $entry) {
+		foreach($scheduled as $entry) {
 			$identIata = strtoupper($entry['ident_iata'] ?? '');
 			$identIcao = strtoupper($entry['ident_icao'] ?? '');
 
@@ -134,8 +119,24 @@ class FlightAwareSvc {
 
 	// =========================================================================
 	public function scheduleByRoute(Carbon $date, string $origin, string $destination, ?string $airline = null): array {
-		$start = $date->copy()->startOfDay();
-		$end = $date->copy()->endOfDay();
+		$scheduled = $this->schedulesDepartingOn($date, [
+			'origin' =>			$origin,
+			'destination' =>	$destination,
+			'airline' =>		$airline,
+		]);
+
+		return array_map(fn($entry) => arrayToObject($entry), $scheduled);
+	}
+
+	// =========================================================================
+	// The user means the date the flight departs in its origin's local time,
+	// so search a window wide enough to cover every timezone (UTC-12 to
+	// UTC+14) and keep only flights departing on that local date. The wider
+	// window returns more flights, so fetch extra pages to keep the
+	// requested day from being pushed off the first page.
+	private function schedulesDepartingOn(Carbon $date, array $query): array {
+		$start = $date->copy()->startOfDay()->subHours(14);
+		$end = $date->copy()->endOfDay()->addHours(14);
 
 		$url = implode('/', [
 			$this->url,
@@ -147,20 +148,36 @@ class FlightAwareSvc {
 		$resp = Http::withHeaders([
 			'x-apikey' =>	$this->key,
 		])
-		->withQueryParameters(array_filter([
-			'origin' =>			$origin,
-			'destination' =>	$destination,
-			'airline' =>		$airline,
-		]))
+		->withQueryParameters(array_filter($query) + [
+			'max_pages' =>	self::SCHEDULE_MAX_PAGES,
+		])
 		->get($url);
 
 		if(! $resp->successful()) {
 			return [];
 		}
 
-		$data = $resp->json();
+		$timezones = [];
 
-		return array_map(fn($entry) => arrayToObject($entry), $data['scheduled'] ?? []);
+		return array_values(array_filter(
+			$resp->json('scheduled') ?? [],
+			fn($entry) => $this->departsOn($entry, $date, $timezones)
+		));
+	}
+
+	// =========================================================================
+	// $timezones caches origin timezones across the entries of one response.
+	private function departsOn(array $entry, Carbon $date, array &$timezones): bool {
+		if(empty($entry['scheduled_out'])) {
+			return false;
+		}
+
+		$origin = $entry['origin_icao'] ?? $entry['origin'] ?? '';
+		$timezones[$origin] ??= Airport::where('icao', $origin)->value('timezone') ?: 'UTC';
+
+		return Carbon::parse($entry['scheduled_out'])
+			->setTimezone($timezones[$origin])
+			->toDateString() === $date->toDateString();
 	}
 
 	// =========================================================================
