@@ -18,8 +18,8 @@ class AddFlightDetailsTest extends TestCase {
 			'*/schedules/*' => Http::response([
 				'scheduled' => [[
 					'ident_iata' => 'UA100',
-					'scheduled_out' => '2026-07-01T09:00:00Z',
-					'scheduled_in' => '2026-07-01T17:30:00Z',
+					'scheduled_out' => $flight->departure_date->toDateString() . 'T16:00:00Z',
+					'scheduled_in' => $flight->departure_date->toDateString() . 'T23:30:00Z',
 					'aircraft_type' => 'B738',
 					'meal_service' => 'snack',
 					'seats_cabin_first' => 8,
@@ -46,8 +46,9 @@ class AddFlightDetailsTest extends TestCase {
 			'*/flights/UA100*' => Http::response([
 				'flights' => [[
 					'ident_iata' => 'UA100',
-					'scheduled_out' => '2026-07-01T09:00:00Z',
-					'scheduled_in' => '2026-07-01T17:30:00Z',
+					'origin' => ['code_icao' => 'KSFO', 'timezone' => 'America/Los_Angeles'],
+					'scheduled_out' => $flight->departure_date->toDateString() . 'T16:00:00Z',
+					'scheduled_in' => $flight->departure_date->toDateString() . 'T23:30:00Z',
 					'aircraft_type' => 'A320',
 					'meal_service' => null,
 					'seats_cabin_first' => 0,
@@ -64,6 +65,43 @@ class AddFlightDetailsTest extends TestCase {
 		$this->assertSame(138, $flight->coach_seats);
 
 		Http::assertSent(fn ($request) => str_contains($request->url(), '/flights/UA100'));
+	}
+
+	// =========================================================================
+	// /flights gives the origin's timezone inline. The fallback must skip the
+	// same flight number departing on another local day in its window.
+	public function test_handle_fallback_skips_a_flight_on_another_local_date(): void {
+		$flight = $this->makeFlight(['departure_date' => Carbon::now()->toDateString()]);
+		$today = $flight->departure_date->toDateString();
+		$yesterday = $flight->departure_date->copy()->subDay()->toDateString();
+		$origin = ['code_icao' => 'KSFO', 'timezone' => 'America/Los_Angeles'];
+
+		Http::fake([
+			'*/schedules/*' => Http::response(['scheduled' => []], 200),
+			'*/flights/UA100*' => Http::response([
+				'flights' => [
+					// 22:00 the day before in San Francisco.
+					[
+						'ident_iata' => 'UA100', 'origin' => $origin, 'aircraft_type' => 'B738',
+						'scheduled_out' => $today . 'T05:00:00Z', 'scheduled_in' => $today . 'T13:00:00Z',
+						'meal_service' => null, 'seats_cabin_first' => 0, 'seats_cabin_business' => 0, 'seats_cabin_coach' => 0,
+					],
+					// 22:00 today in San Francisco, tomorrow in UTC.
+					[
+						'ident_iata' => 'UA100', 'origin' => $origin, 'aircraft_type' => 'A320',
+						'scheduled_out' => $flight->departure_date->copy()->addDay()->toDateString() . 'T05:00:00Z',
+						'scheduled_in' => $flight->departure_date->copy()->addDay()->toDateString() . 'T13:00:00Z',
+						'meal_service' => null, 'seats_cabin_first' => 0, 'seats_cabin_business' => 0, 'seats_cabin_coach' => 0,
+					],
+				],
+			], 200),
+		]);
+
+		(new AddFlightDetails($flight))->handle(app(FlightAwareSvc::class));
+
+		$flight->refresh();
+		$this->assertSame('A320', $flight->equipment);
+		$this->assertNotSame($yesterday, $flight->departure_dt->toDateString());
 	}
 
 	// =========================================================================

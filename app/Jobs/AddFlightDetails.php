@@ -39,11 +39,8 @@ class AddFlightDetails implements ShouldQueue {
 		}
 
 		if($this->flight->departure_date->startOfDay() == Carbon::now()->startOfDay()) {
-			$start = $this->flight->departure_date->copy()->startOfDay();
-			$end = $this->flight->departure_date->copy()->endOfDay();
-
-			$info = $fa->flightInfo($this->flight->flight, $start, $end);
-			$match = $info?->flights->firstWhere('ident_iata', $this->flight->flight);
+			$match = $fa->flightsDepartingOn($this->flight->flight, $this->flight->departure_date)
+				->firstWhere('ident_iata', $this->flight->flight);
 
 			if(null != $match) {
 				$this->flight->departure_dt =	new Carbon($match->scheduled_out);

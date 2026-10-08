@@ -6,6 +6,7 @@ use App\Models\Airline;
 use App\Models\Airport;
 use App\Models\Flight;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
 // =============================================================================
@@ -78,6 +79,22 @@ class FlightAwareSvc {
 		$r->flights = collect($r->flights ?? []);
 
 		return $r;
+	}
+
+	// =========================================================================
+	// Live flights for an ident departing on $date in their origin's local
+	// time. AeroAPI's /flights only covers about 2 days ahead, so this is for
+	// flights departing today.
+	public function flightsDepartingOn(string $ident, Carbon $date): Collection {
+		$start = $date->copy()->startOfDay()->subHours(14);
+		$end = $date->copy()->endOfDay()->addHours(14);
+
+		$info = $this->flightInfo($ident, $start, $end);
+		$timezones = [];
+
+		return ($info?->flights ?? collect())
+			->filter(fn($f) => $this->departsOn(json_decode(json_encode($f), true), $date, $timezones))
+			->values();
 	}
 
 	// =========================================================================
@@ -172,46 +189,36 @@ class FlightAwareSvc {
 			return false;
 		}
 
-		$origin = $entry['origin_icao'] ?? $entry['origin'] ?? '';
-		$timezones[$origin] ??= Airport::where('icao', $origin)->value('timezone') ?: 'UTC';
+		// /schedules gives the origin as a code; /flights gives an object
+		// that already carries the airport's timezone.
+		$origin = $entry['origin'] ?? null;
+		$icao = is_array($origin)
+			? ($origin['code_icao'] ?? $origin['code'] ?? '')
+			: ($entry['origin_icao'] ?? $origin ?? '');
+
+		$timezones[$icao] ??= (is_array($origin) ? ($origin['timezone'] ?? null) : null)
+			?: Airport::where('icao', $icao)->value('timezone')
+			?: 'UTC';
 
 		return Carbon::parse($entry['scheduled_out'])
-			->setTimezone($timezones[$origin])
+			->setTimezone($timezones[$icao])
 			->toDateString() === $date->toDateString();
 	}
 
 	// =========================================================================
 	public function flightSchedule(Flight $flight) {
-		$start = $flight->departure_date->copy()->startOfDay();
-		$end = $flight->departure_date->copy()->endOfDay();
-
-		$url = implode('/', [
-			$this->url,
-			'schedules',
-			$start->toIso8601ZuluString(),
-			$end->toIso8601ZuluString()
-		]);
-
-		$resp = Http::withHeaders([
-			'x-apikey' =>	$this->key,
-		])
-		->withQueryParameters([
+		$scheduled = $this->schedulesDepartingOn($flight->departure_date, [
 			'airline' =>		$flight->airline_icao,
 			'flight_number' =>	$flight->flight_no,
 			'origin' =>			$flight->origin_icao,
 			'destination' =>	$flight->destination_icao,
-		])
-		->get($url);
+		]);
 
-		$data = $resp->json();
-
-		if(isset($data['scheduled'])) {
-			foreach($data['scheduled'] as $entry) {
-				if(($entry['ident_iata'] ?? null) == $flight->flight
-					|| ($entry['ident_icao'] ?? null) == $flight->airline_icao . $flight->flight_no
-				) {
-					return arrayToObject($entry);
-				}
+		foreach($scheduled as $entry) {
+			if(($entry['ident_iata'] ?? null) == $flight->flight
+				|| ($entry['ident_icao'] ?? null) == $flight->airline_icao . $flight->flight_no
+			) {
+				return arrayToObject($entry);
 			}
 		}
 

@@ -46,8 +46,8 @@ class FlightSearchControllerTest extends TestCase {
 			'*/schedules/*' => Http::response([
 				'scheduled' => [[
 					'ident_iata' => 'VS3',
-					'scheduled_out' => '2026-07-01T14:00:00Z',
-					'scheduled_in' => '2026-07-01T22:00:00Z',
+					'scheduled_out' => $this->searchDate() . 'T14:00:00Z',
+					'scheduled_in' => $this->searchDate() . 'T22:00:00Z',
 					'aircraft_type' => 'A350',
 					'meal_service' => 'dinner',
 					'seats_cabin_first' => 0,
@@ -365,8 +365,8 @@ class FlightSearchControllerTest extends TestCase {
 
 			return Http::response(['scheduled' => $isVirgin ? [[
 				'ident_iata' => 'VS3',
-				'scheduled_out' => '2026-07-01T14:00:00Z',
-				'scheduled_in' => '2026-07-01T22:00:00Z',
+				'scheduled_out' => $this->searchDate() . 'T14:00:00Z',
+				'scheduled_in' => $this->searchDate() . 'T22:00:00Z',
 			]] : []], 200);
 		});
 

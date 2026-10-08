@@ -60,8 +60,8 @@ class FlightAwareSvcTest extends TestCase {
 		Http::fake([
 			'*/schedules/*' => Http::response([
 				'scheduled' => [
-					['ident_iata' => 'DL200', 'aircraft_type' => 'A321'],
-					['ident_iata' => 'UA100', 'aircraft_type' => 'B738'],
+					['ident_iata' => 'DL200', 'aircraft_type' => 'A321', 'scheduled_out' => $flight->departure_date->toDateString() . 'T16:00:00Z'],
+					['ident_iata' => 'UA100', 'aircraft_type' => 'B738', 'scheduled_out' => $flight->departure_date->toDateString() . 'T16:00:00Z'],
 				],
 			], 200),
 		]);
@@ -69,6 +69,25 @@ class FlightAwareSvcTest extends TestCase {
 		$match = (new FlightAwareSvc())->flightSchedule($flight);
 
 		$this->assertSame('B738', $match->aircraft_type);
+	}
+
+	// =========================================================================
+	// The window covers the evening before in New York too, when the same
+	// flight number departs at 02:00Z on the requested date.
+	public function test_flight_schedule_matches_the_departure_on_the_origin_local_date(): void {
+		$flight = $this->makeFlight(['origin_icao' => 'KJFK', 'destination_icao' => 'KSFO', 'departure_date' => '2026-11-01']);
+
+		Http::fake(['*/schedules/*' => Http::response(['scheduled' => [
+			// 2026-10-31 22:00 in New York.
+			['ident_iata' => 'UA100', 'origin_icao' => 'KJFK', 'aircraft_type' => 'B738', 'scheduled_out' => '2026-11-01T02:00:00Z'],
+			// 2026-11-01 21:00 in New York.
+			['ident_iata' => 'UA100', 'origin_icao' => 'KJFK', 'aircraft_type' => 'A320', 'scheduled_out' => '2026-11-02T02:00:00Z'],
+		]], 200)]);
+
+		$match = (new FlightAwareSvc())->flightSchedule($flight);
+
+		$this->assertSame('2026-11-02T02:00:00Z', $match->scheduled_out);
+		Http::assertSent(fn ($request) => str_contains($request->url(), '/schedules/2026-10-31T10:00:00Z/2026-11-02T13:59:59Z'));
 	}
 
 	// =========================================================================
