@@ -6,6 +6,7 @@ use App\Models\Listener;
 use App\Models\Watch;
 use App\Models\WatchCallback;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Dumps the canary users' watches, listeners and callbacks as JSON for the
@@ -81,8 +82,21 @@ class CanaryState extends Command {
 			];
 		})->values();
 
+		// Last 12 chars of each canary user's FCM tokens, so the canary can spot a stale one.
+		$pushTokens = DB::table('user_channels')
+			->join('users', 'users.id', '=', 'user_channels.user_id')
+			->whereIn(DB::raw('LOWER(users.email)'), array_map('strtolower', $this->option('email')))
+			->where('user_channels.channel', 'like', '%FcmChannel')
+			->get(['users.email', 'user_channels.credentials'])
+			->groupBy(fn ($r) => strtolower($r->email))
+			->map(fn ($rows) => $rows
+				->map(fn ($r) => substr((string) (json_decode($r->credentials, true)['token'] ?? ''), -12))
+				->filter()->values())
+		;
+
 		$this->line(json_encode([
 			'generated_at' => now()->toIso8601String(),
+			'push_tokens' => $pushTokens,
 			'watches' => $out,
 		], JSON_UNESCAPED_SLASHES));
 
