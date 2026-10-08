@@ -96,7 +96,7 @@ class CanaryState extends Command {
 
 		$this->line(json_encode([
 			'generated_at' => now()->toIso8601String(),
-			'push_tokens' => $pushTokens,
+			'push_tokens' => (object) $pushTokens->all(), // {} rather than [] when empty
 			'watches' => $out,
 		], JSON_UNESCAPED_SLASHES));
 
