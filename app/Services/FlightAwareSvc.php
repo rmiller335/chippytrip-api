@@ -170,8 +170,9 @@ class FlightAwareSvc {
 		])
 		->get($url);
 
+		// Fail loudly: an empty list here reads as "no such flight" to the user.
 		if(! $resp->successful()) {
-			return [];
+			throw new \RuntimeException('AeroAPI /schedules failed: HTTP ' . $resp->status());
 		}
 
 		$timezones = [];
