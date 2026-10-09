@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Console\Commands\MaintenanceNightly;
 use App\Jobs\HealthHeartbeat;
+use App\Notifications\Channels\FcmChannel;
 use Carbon\Carbon;
 use Google\Auth\Credentials\ServiceAccountCredentials;
 use Illuminate\Support\Facades\Cache;
@@ -227,8 +228,8 @@ class HealthCheckSvc {
 			return self::result(self::FAIL, 'push.project_id (FCM_PROJECT_ID) is not configured.');
 		}
 
-		// FcmSender uses the path as-is, and the queue worker runs from the
-		// project root, so resolve relative paths against that.
+		// config/push.php already resolves a relative path from the app root;
+		// this keeps the check right even for an old cached config.
 		if (! empty($credentials) && ! Str::startsWith($credentials, '/')) {
 			$credentials = base_path($credentials);
 		}
@@ -252,6 +253,31 @@ class HealthCheckSvc {
 		}
 
 		return self::result(self::OK, 'FCM accepted the credentials.');
+	}
+
+	// =========================================================================
+	// What happened to real pushes, as the queue worker sent them. fcm() only
+	// proves the credentials work from the web process; this catches sends
+	// that fail in the worker (e.g. a path that only resolves from the app root).
+	public function pushDelivery(): array {
+		$failure = Cache::get(FcmChannel::LAST_FAILURE_KEY);
+		$success = Cache::get(FcmChannel::LAST_SUCCESS_KEY);
+		$details = ['last_success' => $success, 'last_failure' => $failure['at'] ?? null];
+		$window = config('health.push_failure_window');
+
+		if (null === $failure || Carbon::parse($failure['at'])->lt(now()->subSeconds($window))) {
+			return self::result(self::OK, null === $success
+				? 'No push sends recorded yet.'
+				: 'No failed push sends recently.', $details);
+		}
+
+		$message = 'A push send failed: ' . $failure['message'];
+
+		if (null !== $success && Carbon::parse($success)->gt(Carbon::parse($failure['at']))) {
+			return self::result(self::WARN, $message . ' (sends have succeeded since).', $details);
+		}
+
+		return self::result(self::FAIL, $message, $details);
 	}
 
 	// =========================================================================

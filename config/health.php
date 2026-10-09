@@ -20,6 +20,10 @@ return [
 	// within this many seconds.
 	'maintenance_max_age' => (int) env('HEALTH_MAINTENANCE_MAX_AGE', 7200),
 
+	// push_delivery fails while the latest push send failure is newer than this
+	// many seconds and nothing has been sent successfully since.
+	'push_failure_window' => (int) env('HEALTH_PUSH_FAILURE_WINDOW', 3600),
+
 	// Fail if the disk holding storage/ has less free space than this.
 	'min_free_disk_mb' => (int) env('HEALTH_MIN_FREE_DISK_MB', 500),
 

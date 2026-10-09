@@ -26,6 +26,7 @@ class HealthController extends Controller {
 		'maintenance' =>	['maintenance', true, false],
 		'flightaware' =>	['flightAware', true, true],
 		'fcm' =>			['fcm', true, true],
+		'push_delivery' =>	['pushDelivery', true, false],
 		'openai' =>			['openAi', false, true],
 	];
 

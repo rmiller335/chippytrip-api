@@ -3,11 +3,16 @@ namespace App\Notifications\Channels;
 
 use App\Models\UserChannel;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Lumi\NativePush\Server\{FcmSender, FcmMessage};
 
 // =============================================================================
 class FcmChannel {
+	// Outcome of the latest real send, for HealthCheckSvc::pushDelivery().
+	public const LAST_SUCCESS_KEY =	'health:push_last_success';
+	public const LAST_FAILURE_KEY =	'health:push_last_failure';
+
     public function __construct(private FcmSender $sender) {}
 
 	// =========================================================================
@@ -47,6 +52,7 @@ class FcmChannel {
                     $message->url("/notifications/open/{$data['alert_id']}");
                 }
                 $this->sender->send($message);
+                Cache::put(self::LAST_SUCCESS_KEY, now()->toIso8601String(), now()->addDays(7));
             } catch (\RuntimeException $e) {
                 $this->handleSendFailure($e, $channel, $token, 'notification');
             }
@@ -81,5 +87,10 @@ class FcmChannel {
         Log::error("FCM {$kind} send threw: {$e->getMessage()}", [
             'token' => $token,
         ]);
+
+        Cache::put(self::LAST_FAILURE_KEY, [
+            'at' =>			now()->toIso8601String(),
+            'message' =>	mb_substr($e->getMessage(), 0, 300),
+        ], now()->addDays(7));
     }
 }

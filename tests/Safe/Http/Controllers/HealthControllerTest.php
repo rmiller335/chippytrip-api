@@ -71,7 +71,7 @@ class HealthControllerTest extends TestCase {
 		$response->assertStatus(200);
 		$response->assertJsonPath('status', 'ok');
 		foreach (['app', 'database', 'migrations', 'cache', 'storage', 'queue', 'failed_jobs',
-				'maintenance', 'flightaware', 'fcm', 'openai'] as $check) {
+				'maintenance', 'flightaware', 'fcm', 'push_delivery', 'openai'] as $check) {
 			$response->assertJsonPath("checks.{$check}.status", 'ok');
 		}
 
@@ -249,5 +249,37 @@ class HealthControllerTest extends TestCase {
 		$response->assertStatus(200);
 		$response->assertJsonPath('status', 'degraded');
 		$response->assertJsonPath('checks.failed_jobs.failed_24h', 1);
+	}
+
+	// =========================================================================
+	public function test_recent_push_failure_fails(): void {
+		Cache::put(\App\Notifications\Channels\FcmChannel::LAST_SUCCESS_KEY, now()->subHours(2)->toIso8601String());
+		Cache::put(\App\Notifications\Channels\FcmChannel::LAST_FAILURE_KEY,
+			['at' => now()->subMinutes(5)->toIso8601String(), 'message' => 'Service-account JSON not found']);
+		$this->fakeExternals();
+
+		$response = $this->getHealth();
+
+		$response->assertStatus(503);
+		$response->assertJsonPath('checks.push_delivery.status', 'fail');
+	}
+
+	// =========================================================================
+	public function test_push_failure_with_success_since_warns(): void {
+		Cache::put(\App\Notifications\Channels\FcmChannel::LAST_FAILURE_KEY,
+			['at' => now()->subMinutes(10)->toIso8601String(), 'message' => 'blip']);
+		Cache::put(\App\Notifications\Channels\FcmChannel::LAST_SUCCESS_KEY, now()->subMinute()->toIso8601String());
+		$this->fakeExternals();
+
+		$this->getHealth()->assertJsonPath('checks.push_delivery.status', 'warn');
+	}
+
+	// =========================================================================
+	public function test_old_push_failure_is_ok(): void {
+		Cache::put(\App\Notifications\Channels\FcmChannel::LAST_FAILURE_KEY,
+			['at' => now()->subHours(3)->toIso8601String(), 'message' => 'old']);
+		$this->fakeExternals();
+
+		$this->getHealth()->assertJsonPath('checks.push_delivery.status', 'ok');
 	}
 }
