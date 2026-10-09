@@ -6,7 +6,11 @@ return [
 
     // Absolute path to the service-account JSON used to sign FCM v1 requests.
     // Keep this OFF the device build and out of version control.
-    'credentials' => env('FIREBASE_CREDENTIALS'),
+    // A relative path is taken from the app root: the queue worker doesn't run
+    // from there, so a relative path only worked in artisan/tinker.
+    'credentials' => (fn (?string $p) => $p && ! str_starts_with($p, '/') ? base_path($p) : $p)(
+        env('FIREBASE_CREDENTIALS')
+    ),
 
     /*
     |--------------------------------------------------------------------------
