@@ -130,4 +130,22 @@ class WatchCallbackTest extends TestCase {
 
 		$this->assertFalse($wc->matchesFlightDate($flight));
 	}
+
+	// =========================================================================
+	public function test_flight_date_offset_counts_days_from_the_watched_date(): void {
+		$wc = WatchCallback::fromApiPayload($this->payload());
+
+		$this->assertSame(0, $wc->flightDateOffset($this->makeFlight(['departure_date' => '2026-07-01'])));
+		$this->assertSame(-1, $wc->flightDateOffset($this->makeFlight(['departure_date' => '2026-07-02'])));
+		$this->assertSame(1, $wc->flightDateOffset($this->makeFlight(['departure_date' => '2026-06-30'])));
+	}
+
+	// =========================================================================
+	public function test_flight_date_offset_is_null_without_scheduled_out(): void {
+		$wc = WatchCallback::fromApiPayload($this->payload([
+			'flight' => array_merge($this->payload()['flight'], ['scheduled_out' => null]),
+		]));
+
+		$this->assertNull($wc->flightDateOffset($this->makeFlight(['departure_date' => '2026-07-01'])));
+	}
 }

@@ -322,14 +322,25 @@ class WatchCallback extends Model {
 	// Convert scheduled_out into the origin's local timezone before comparing
 	// calendar dates.
 	public function matchesFlightDate(Flight $flight): bool {
+		return 0 === $this->flightDateOffset($flight);
+	}
+
+	// =========================================================================
+	// Days between this callback's scheduled departure date (origin-local) and
+	// the watched flight's departure date: 0 for the watched departure, 1 for
+	// the next day's flight with the same number, and so on. Null when the
+	// callback has no scheduled_out.
+	public function flightDateOffset(Flight $flight): ?int {
 		if ($this->scheduled_out === null) {
-			return false;
+			return null;
 		}
 
 		$originTz = $flight->origin->timezone ?? 'UTC';
-		$localScheduledOut = $this->scheduled_out->copy()->setTimezone($originTz);
+		$local = \Carbon\Carbon::parse(
+			$this->scheduled_out->copy()->setTimezone($originTz)->toDateString(), 'UTC');
+		$watched = \Carbon\Carbon::parse($flight->departure_date->toDateString(), 'UTC');
 
-		return $flight->departure_date->toDateString() === $localScheduledOut->toDateString();
+		return (int) $watched->diffInDays($local, false);
 	}
 
 	// -------------------------------------------------------------------------

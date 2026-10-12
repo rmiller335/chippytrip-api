@@ -49,6 +49,16 @@ class Flight extends Model {
 	}
 
 	// =========================================================================
+	// [start, end] dates for the AeroAPI alert: the departure date (origin-local)
+	// widened by flightaware.alert_buffer_days either side.
+	public function alertWindow(): array {
+		$date = Carbon::parse($this->departure_date->toDateString());
+		$buffer = max(0, (int) config('flightaware.alert_buffer_days', 1));
+
+		return [$date->copy()->subDays($buffer), $date->copy()->addDays($buffer)];
+	}
+
+	// =========================================================================
 	public function airline(): HasOne {
 		return $this->hasOne(Airline::class, 'icao', 'airline_icao');
 	}
