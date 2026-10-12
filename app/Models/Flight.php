@@ -53,12 +53,17 @@ class Flight extends Model {
 
 	// =========================================================================
 	// [start, end] dates for the AeroAPI alert: the departure date (origin-local)
-	// widened by flightaware.alert_buffer_days either side.
+	// widened by flightaware.alert_buffer_days either side. AeroAPI rejects a
+	// start date in the past, so the start is never before today at the origin.
 	public function alertWindow(): array {
 		$date = Carbon::parse($this->departure_date->toDateString());
 		$buffer = max(0, (int) config('flightaware.alert_buffer_days', 1));
+		$today = Carbon::parse(now($this->origin?->timezone ?? 'UTC')->toDateString());
 
-		return [$date->copy()->subDays($buffer), $date->copy()->addDays($buffer)];
+		$start = $date->copy()->subDays($buffer)->max($today);
+		$end = $date->copy()->addDays($buffer)->max($start);
+
+		return [$start, $end];
 	}
 
 	// =========================================================================

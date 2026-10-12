@@ -66,7 +66,8 @@ class EnableWatchTest extends TestCase {
 	// =========================================================================
 	public function test_alert_window_without_buffer_is_just_the_departure_date(): void {
 		config(['flightaware.alert_buffer_days' => 0]);
-		$flight = $this->makeFlight(['departure_date' => '2026-07-01']);
+		$date = now('America/Los_Angeles')->addDays(4)->toDateString();
+		$flight = $this->makeFlight(['departure_date' => $date]);
 		$watch = Watch::create(['flight_id' => $flight->id]);
 
 		Http::fake([
@@ -76,7 +77,7 @@ class EnableWatchTest extends TestCase {
 		(new EnableWatch($watch))->handle(app(FlightAwareSvc::class));
 
 		Http::assertSent(fn ($request) => str_ends_with($request->url(), '/alerts')
-			&& $request['start'] === '2026-07-01' && $request['end'] === '2026-07-01');
+			&& $request['start'] === $date && $request['end'] === $date);
 	}
 
 	// =========================================================================
@@ -116,5 +117,24 @@ class EnableWatchTest extends TestCase {
 		$this->assertSame('SKW5100', $flight->refresh()->operating_ident);
 		Http::assertSent(fn ($request) => str_ends_with($request->url(), '/alerts')
 			&& $request['ident'] === 'SKW5100');
+	}
+
+	// =========================================================================
+	// AeroAPI rejects a start date in the past: a flight departing today
+	// starts its alert today (at the origin), not the day before.
+	public function test_alert_for_todays_flight_does_not_start_in_the_past(): void {
+		$today = now('America/Los_Angeles')->toDateString();
+		$flight = $this->makeFlight(['departure_date' => $today, 'operating_ident' => 'UAL100']);
+		$watch = Watch::create(['flight_id' => $flight->id]);
+
+		Http::fake([
+			'*/alerts' => Http::response(null, 201, ['Location' => '/alerts/1234567']),
+		]);
+
+		(new EnableWatch($watch))->handle(app(FlightAwareSvc::class));
+
+		Http::assertSent(fn ($request) => str_ends_with($request->url(), '/alerts')
+			&& $request['start'] === $today
+			&& $request['end'] === \Carbon\Carbon::parse($today)->addDay()->toDateString());
 	}
 }
