@@ -50,6 +50,7 @@ class CanaryState extends Command {
 			->where('created_at', '>=', $since)
 			->with([
 				'flight.airline',
+				'flight.origin',
 				'listeners' => fn ($q) => $q->orderBy('id')->with('user'),
 				'callbacks' => fn ($q) => $q->orderBy('created_at')->orderBy('id'),
 			])
@@ -80,7 +81,10 @@ class CanaryState extends Command {
 						'event_at' => $this->actualEventTime($c),
 						// The tray notification's text (FcmChannel's notification send),
 						// so the canary can match what a backgrounded phone shows.
-						'notifies' => WatchCallback::handles($c->event_code),
+						// Mirrors WatchCallback::callback(): a callback for another day's
+						// departure of the same flight number is stored but sends no push.
+						'notifies' => WatchCallback::handles($c->event_code)
+							&& null !== $flight && $c->matchesFlightDate($flight),
 						'title' => $c->title ?? 'ChippyTrip',
 						'body' => $c->body ?? '',
 					])->values(),
