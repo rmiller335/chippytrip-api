@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Models\Watch;
 use App\Services\FlightAwareSvc;
-use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -21,13 +20,16 @@ class EnableWatch implements ShouldQueue {
     public function handle(FlightAwareSvc $fa): void {
 		$secret = Watch::genSecret();
 
-		$start = max(Carbon::now(), $this->watch->flight->alert_start);
+		// The alert covers the watched departure (plus a buffer), whenever it's
+		// created: the day before via maintenance:nightly, or right away.
+		[$start, $end] = $this->watch->flight->alertWindow();
 
 		$subsId = $fa->watchCreate(
 			$this->watch->flight->flight,
 			$this->watch->flight->origin_icao,
 			$this->watch->flight->destination_icao,
-			Carbon::now(),
+			$start,
+			$end,
 			$secret
 		);
 

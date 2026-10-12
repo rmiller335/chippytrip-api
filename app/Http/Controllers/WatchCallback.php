@@ -7,6 +7,7 @@ use App\Jobs\SendNotification;
 use App\Models\Watch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 // =============================================================================
@@ -36,6 +37,8 @@ class WatchCallback extends Controller {
 			]);
 		}
 
+		$this->logWindow($wc, $watch);
+
 		if($wc->matchesFlightDate($watch->flight)) {
 			foreach($wc->watch->listeners as $listener) {
 				Bus::chain([
@@ -46,5 +49,26 @@ class WatchCallback extends Controller {
 		}
 
 		return response(null, 200);
+	}
+
+	// =========================================================================
+	// Feeds alerts:window-report. Never lets a logging problem fail the webhook.
+	private function logWindow(\App\Models\WatchCallback $wc, Watch $watch): void {
+		try {
+			DB::table('alert_window_log')->insert([
+				'watch_id' =>		$watch->id,
+				'callback_id' =>	$wc->id,
+				'ident' =>			$wc->ident_iata ?? $wc->ident_icao,
+				'fa_flight_id' =>	$wc->fa_flight_id,
+				'event_code' =>		$wc->event_code,
+				'watched_date' =>	$watch->flight->departure_date->toDateString(),
+				'scheduled_out' =>	$wc->scheduled_out,
+				'offset_days' =>	$wc->flightDateOffset($watch->flight),
+				'created_at' =>		now(),
+			]);
+		}
+		catch (\Throwable $e) {
+			Log::warning('WatchCallback: alert_window_log insert failed: ' . $e->getMessage());
+		}
 	}
 }
