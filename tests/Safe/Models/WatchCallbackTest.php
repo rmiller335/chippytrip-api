@@ -148,4 +148,23 @@ class WatchCallbackTest extends TestCase {
 
 		$this->assertNull($wc->flightDateOffset($this->makeFlight(['departure_date' => '2026-07-01'])));
 	}
+
+	// =========================================================================
+	// FlightAware reports a codeshare under the operator's ident; the user
+	// should see the flight they watched.
+	public function test_text_and_push_name_the_watched_flight_not_the_operator(): void {
+		$flight = $this->makeFlight(['departure_date' => '2026-07-01', 'operating_ident' => 'SKW5100']);
+		$watch = \App\Models\Watch::create(['flight_id' => $flight->id]);
+		$wc = WatchCallback::fromApiPayload($this->payload([
+			'flight' => array_merge($this->payload()['flight'], ['ident' => 'SKW5100', 'ident_iata' => 'OO5100']),
+		]));
+		$wc->watch_id = $watch->id;
+
+		$this->assertStringContainsString('UA100', $wc->title);
+		$this->assertStringNotContainsString('OO5100', $wc->title);
+
+		$fcm = (new \App\Notifications\Departure($wc))->toFcm(new \stdClass());
+		$this->assertSame('UA100', $fcm['ident_iata']);
+		$this->assertSame('UAL100', $fcm['ident_icao']);
+	}
 }

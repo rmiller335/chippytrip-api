@@ -45,9 +45,13 @@ trait Callback {
 			'estimated_in'      => $this->callback->estimated_in?->toISOString(),
 			'estimated_off'     => $this->callback->estimated_off?->toISOString(),
 			'event_code'        => $this->callback->event_code,
-			'flight_number'     => $this->callback->flight_number,
-			'ident_iata'        => $this->callback->ident_iata,
-			'ident_icao'        => $this->callback->ident_icao,
+			// The flight the user watched, as the sync resource sends it: for a
+			// codeshare FlightAware reports the operator's (PT6126, not AA6126).
+			'flight_number'     => $this->watchedFlight()?->flight ?? $this->callback->flight_number,
+			'ident_iata'        => $this->watchedFlight()?->flight ?? $this->callback->ident_iata,
+			'ident_icao'        => $this->watchedFlight()
+				? $this->watchedFlight()->airline_icao . $this->watchedFlight()->flight_no
+				: $this->callback->ident_icao,
 			'origin_city'       => $this->callback->origin_city,
 			'origin_iata'       => $this->callback->origin_iata,
 			'origin_icao'       => $this->callback->origin_icao,
@@ -56,5 +60,10 @@ trait Callback {
 			'scheduled_off'     => $this->callback->scheduled_off?->toISOString(),
 			'scheduled_on'      => $this->callback->scheduled_on?->toISOString(),
 		];
+    }
+
+    // =========================================================================
+    private function watchedFlight(): ?\App\Models\Flight {
+		return $this->callback->watch?->flight;
     }
 }

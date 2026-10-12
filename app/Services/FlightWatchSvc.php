@@ -173,6 +173,7 @@ class FlightWatchSvc {
 		$flightRec->first_seats =		$info->seats_cabin_first ?? null;
 		$flightRec->business_seats =	$info->seats_cabin_business ?? null;
 		$flightRec->coach_seats =		$info->seats_cabin_coach ?? null;
+		$flightRec->operating_ident =	FlightAwareSvc::operatingIdent($info);
 
 		$flightRec->save();
 

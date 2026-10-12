@@ -4,10 +4,12 @@ namespace App\Models;
 
 use App\Models\Airport;
 use App\Models\Watch;
+use App\Services\FlightAwareSvc;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Log;
 
 // =============================================================================
 class Flight extends Model {
@@ -28,6 +30,7 @@ class Flight extends Model {
 		'duration',
 		'flight',
 		'flight_no',
+		'operating_ident',
 		'origin_icao',
 	];
 
@@ -56,6 +59,29 @@ class Flight extends Model {
 		$buffer = max(0, (int) config('flightaware.alert_buffer_days', 1));
 
 		return [$date->copy()->subDays($buffer), $date->copy()->addDays($buffer)];
+	}
+
+	// =========================================================================
+	// The ident to put on the AeroAPI alert: the operating flight's, looked up
+	// from the schedule (and kept) if we don't have it yet. Falls back to the
+	// marketing flight number, which only works when it isn't a codeshare.
+	public function alertIdent(FlightAwareSvc $fa): string {
+		if (! $this->operating_ident) {
+			try {
+				$info = $fa->flightSchedule($this);
+			}
+			catch (\Throwable $e) {
+				Log::warning("Flight {$this->id}: schedule lookup for the alert ident failed: {$e->getMessage()}");
+				$info = null;
+			}
+
+			if ($info && ($ident = FlightAwareSvc::operatingIdent($info))) {
+				$this->operating_ident = $ident;
+				$this->save();
+			}
+		}
+
+		return $this->operating_ident ?: $this->flight;
 	}
 
 	// =========================================================================
