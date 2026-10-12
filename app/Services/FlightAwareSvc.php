@@ -8,6 +8,7 @@ use App\Models\Flight;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 // =============================================================================
 class FlightAwareSvc {
@@ -369,7 +370,15 @@ class FlightAwareSvc {
 			$connection = str_replace('/alerts/', '', $connection);
 		}
 		else {
-			abort(500);
+			// Keep AeroAPI's reason: a bare abort(500) left nothing in the logs.
+			Log::error('AeroAPI alert create failed', [
+				'status' =>	$resp->status(),
+				'body' =>	mb_substr($resp->body(), 0, 1000),
+				'ident' =>	$ident,
+				'start' =>	$startDate->format('Y-m-d'),
+				'end' =>	$endDate->format('Y-m-d'),
+			]);
+			abort(500, 'AeroAPI alert create failed: HTTP ' . $resp->status() . ' ' . mb_substr($resp->body(), 0, 300));
 		}
 
 		return $connection;
