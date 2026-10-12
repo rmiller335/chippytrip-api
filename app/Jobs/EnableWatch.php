@@ -25,7 +25,7 @@ class EnableWatch implements ShouldQueue {
 		[$start, $end] = $this->watch->flight->alertWindow();
 
 		$subsId = $fa->watchCreate(
-			$this->watch->flight->flight,
+			$this->watch->flight->alertIdent($fa),
 			$this->watch->flight->origin_icao,
 			$this->watch->flight->destination_icao,
 			$start,

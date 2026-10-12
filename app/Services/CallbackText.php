@@ -313,8 +313,10 @@ class CallbackText {
 
 	// =========================================================================
 	// The flight number passengers know (DL185), not the ICAO one (DAL185).
+	// For a codeshare that's the one they watched (AA6126), not the
+	// operator's (PT6126) that FlightAware reports.
 	private function flight(): ?string {
-		return $this->cb->ident_iata ?: $this->cb->ident ?: null;
+		return $this->cb->watch?->flight?->flight ?: $this->cb->ident_iata ?: $this->cb->ident ?: null;
 	}
 
 	// =========================================================================

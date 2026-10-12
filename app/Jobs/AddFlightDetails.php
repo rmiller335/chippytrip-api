@@ -32,6 +32,7 @@ class AddFlightDetails implements ShouldQueue {
 			$this->flight->first_seats =	$info->seats_cabin_first;
 			$this->flight->business_seats =	$info->seats_cabin_business;
 			$this->flight->coach_seats =	$info->seats_cabin_coach;
+			$this->flight->operating_ident =	FlightAwareSvc::operatingIdent($info);
 
 			$this->flight->update();
 
@@ -50,6 +51,7 @@ class AddFlightDetails implements ShouldQueue {
 				$this->flight->first_seats =	$match->seats_cabin_first;
 				$this->flight->business_seats =	$match->seats_cabin_business;
 				$this->flight->coach_seats =	$match->seats_cabin_coach;
+				$this->flight->operating_ident =	FlightAwareSvc::operatingIdent($match);
 
 				$this->flight->update();
 

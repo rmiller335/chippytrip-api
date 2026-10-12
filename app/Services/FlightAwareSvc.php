@@ -207,6 +207,13 @@ class FlightAwareSvc {
 	}
 
 	// =========================================================================
+	// The ICAO ident FlightAware tracks a schedule/flight entry under: the
+	// operator's for a codeshare (AAL6126 -> PDT6126), else the entry's own.
+	public static function operatingIdent(object $entry): ?string {
+		return ($entry->actual_ident_icao ?? null) ?: ($entry->ident_icao ?? null) ?: null;
+	}
+
+	// =========================================================================
 	public function flightSchedule(Flight $flight) {
 		$scheduled = $this->schedulesDepartingOn($flight->departure_date, [
 			'airline' =>		$flight->airline_icao,
