@@ -198,9 +198,48 @@ In the foreground, `ShowFlightStatusNotification` uses the local setting to pick
 - Previewing a sound in the menu means playing an audio file from the app; check whether the
   NativePHP plugins support this before relying on it. Previews are optional.
 
+## Pre-departure app reminders
+
+A force-stopped Android app receives no pushes until the user opens it again, and nothing the app sets
+up survives a force stop. The risk is small for US users: stock Android and Pixel phones only kill the
+process on a swipe-away, and the aggressive OEM killers (Xiaomi, OnePlus, Oppo, Huawei) have little US
+share. The main exposure is Samsung, which can put apps that haven't been opened for a while into
+"sleeping" or "deep sleeping" lists. A flight alert app can easily go weeks unopened.
+
+Watches added in the app need nothing extra: the app has just been opened. Watches added by forwarding a
+confirmation email can be weeks old by departure. Opening the app shortly before the flight clears any
+stopped state, resets Samsung's idle timer, refreshes the FCM token and runs the sync, so the API emails
+a reminder to users whose app hasn't checked in recently.
+
+### Tracking last check-in
+
+- Add a nullable `last_seen_at` timestamp to `user_channels`.
+- `FcmTokenController` sets it to `now()` on every call. `updated_at` can't be used for this: when the
+  token is unchanged, `updateOrCreate()` has nothing dirty to save, so `updated_at` doesn't move.
+- A user's last check-in is the latest `last_seen_at` across their FCM channels.
+
+### Sending the reminder
+
+- A scheduled command runs hourly and finds listeners whose flight departs (`scheduled_out`) in the next
+  24 hours and who haven't already been reminded for that flight.
+- It skips users with any FCM device seen in the past 3 days.
+- Everyone else gets one email naming the flight and asking them to open ChippyTrip before departure so
+  alerts arrive. Users with no FCM device at all are asked to install the app and sign in.
+- Record the send on the listener (for example `app_reminder_sent_at`) so each flight gets at most one
+  reminder.
+- The rule depends only on check-in time, not on how the watch was added, so it also covers app users
+  who haven't opened the app since adding a watch far in advance.
+
+### Measuring the gap
+
+The API records every push it sends, and the app syncs history on open. Have the app report which
+synced notifications it never displayed in the tray, with the device model. That shows whether missed
+pushes are a real problem and on which phones, and whether the reminder threshold needs tuning.
+
 ## Edge cases
 
 - **Force-stopped app:** no notification or sound; sync fills in history when the user next opens it.
+  The pre-departure reminder email reduces how often this happens.
 - **Notification permission denied (Android 13+) or channel muted:** nothing is displayed. Show an
   in-app banner when the permission is missing.
 - **Priority downgrades:** every high-priority push now produces a visible notification, so Android
@@ -218,6 +257,9 @@ API (`chippytrip-api`):
 - [ ] Accept and validate `notification_sound` in `FcmTokenController`.
 - [ ] Map `notification_sound` to `channel_id` and APNs `sound` per token in `FcmChannel`.
 - [ ] Feature test asserting the outgoing request body shape, including the sound mapping.
+- [ ] Migration: nullable `last_seen_at` on `user_channels`; set it on every `FcmTokenController` call.
+- [ ] Migration: nullable `app_reminder_sent_at` on the listener.
+- [ ] Hourly command and mailable for the pre-departure reminder, with a feature test for the 3-day skip.
 
 App (`chippytrack`):
 
@@ -226,6 +268,7 @@ App (`chippytrack`):
 - [ ] Sound menu in profile settings; save locally and send with the FCM token.
 - [ ] Use the chosen channel and `notification_id` in `ShowFlightStatusNotification`'s `schedule()`.
 - [ ] Refresh the Notifications list on `FlightStatusPushed` and on app resume.
+- [ ] Report synced notifications that were never shown in the tray, with the device model.
 
 ## Testing
 
