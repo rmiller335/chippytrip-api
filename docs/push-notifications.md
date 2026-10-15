@@ -232,3 +232,8 @@ App (`chippytrack`):
 Run each state with the app open, backgrounded, swiped away, and force-stopped, on the emulator and a
 real device, spacing runs 30–60 seconds apart. Expected: one tray entry with sound per alert in the
 first three states, none in the fourth, and complete history after reopening in every case.
+
+Ongoing coverage comes from the canary's push matrix (chippy-canary `docs/push-matrix.md`): synthetic
+pushes to each canary device in each app state, checked by tray tag, channel and in-app list. It
+needs a `canary:push-test` artisan command on the API and a `data-notification-id` on the app's
+notification rows.
